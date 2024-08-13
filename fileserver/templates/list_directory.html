@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>File Manager</title>
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"
+      integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+    <style>
+      :root {
+        --light-background: #f4f7f6;
+        --light-text: #343a40;
+        --light-breadcrumb-bg: #ffffff;
+        --light-breadcrumb-text: #343a40;
+        --light-breadcrumb-link: #007bff;
+        --light-breadcrumb-link-hover: #0056b3;
+        --light-button-bg: #007bff;
+        --light-button-bg-hover: #0056b3;
+        --light-button-shadow: rgba(0, 0, 0, 0.2);
+        --light-button-border: #007bff;
+        --light-modal-bg: #ffffff;
+        --light-modal-header-bg: #007bff;
+        --light-modal-header-text: #ffffff;
+        --light-modal-body-bg: #ffffff;
+        --light-modal-body-text: #343a40;
+
+        --dark-background: #222;
+        --dark-text: #fff;
+        --dark-breadcrumb-bg: #2c2c2c;
+        --dark-breadcrumb-text: #fff;
+        --dark-breadcrumb-link: #66b2ff;
+        --dark-breadcrumb-link-hover: #3b8adb;
+        --dark-button-bg: #555;
+        --dark-button-bg-hover: #666;
+        --dark-button-shadow: rgba(0, 0, 0, 0.3);
+        --dark-button-border: #555;
+        --dark-modal-bg: #333;
+        --dark-modal-header-bg: #444;
+        --dark-modal-header-text: #fff;
+        --dark-modal-body-bg: #333;
+        --dark-modal-body-text: #fff;
+
+        /* Tabel */
+        --dark-table-header-bg: #2c2c2c;
+        --dark-table-header-text: #e1e1e1;
+        --dark-table-cell-bg: #2a2a2a;
+        --dark-table-cell-text: #e1e1e1;
+        --dark-table-row-hover-bg: #444;
+
+        /* Nav */
+        --dark-nav-bg: #1e1e1e;
+        --dark-nav-text: #e0e0e0;
+        --dark-nav-link: #66b2ff;
+        --dark-nav-link-hover: #3b8adb;
+        --dark-nav-border: #333;
+      }
+
+      body {
+        font-family: Arial, sans-serif;
+        background-color: var(--light-background);
+        color: var(--light-text);
+        margin: 0;
+        padding: 0;
+        line-height: 1.6;
+        transition: background-color 0.3s, color 0.3s;
+      }
+
+      body.dark-mode {
+        background-color: var(--dark-background);
+        color: var(--dark-text);
+      }
+
+      .breadcrumb {
+        background-color: var(--light-breadcrumb-bg);
+        color: var(--light-breadcrumb-text);
+        margin-bottom: 20px;
+        border-radius: 0.375rem;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        padding: 10px 15px;
+        transition: background-color 0.3s, color 0.3s;
+      }
+
+      .breadcrumb.dark-mode {
+        background-color: var(--dark-breadcrumb-bg);
+        color: var(--dark-breadcrumb-text);
+      }
+
+      .breadcrumb a {
+        color: var(--light-breadcrumb-link);
+        transition: color 0.3s;
+        text-decoration: none;
+      }
+
+      .breadcrumb a.dark-mode {
+        color: var(--dark-breadcrumb-link);
+      }
+
+      .breadcrumb a:hover {
+        color: var(--light-breadcrumb-link-hover);
+        text-decoration: underline;
+      }
+
+      .breadcrumb a.dark-mode:hover {
+        color: var(--dark-breadcrumb-link-hover);
+      }
+
+      .nav {
+        background-color: var(--light-background);
+        color: var(--light-text);
+        border-bottom: 1px solid #e9ecef;
+        padding: 10px 20px;
+        transition: background-color 0.3s, color 0.3s;
+      }
+
+      .nav.dark-mode {
+        background-color: var(--dark-nav-bg);
+        color: var(--dark-nav-text);
+        border-bottom: 1px solid var(--dark-nav-border);
+      }
+
+      .nav a {
+        color: var(--light-text);
+        text-decoration: none;
+        margin-right: 15px;
+        transition: color 0.3s;
+      }
+
+      .nav a.dark-mode {
+        color: var(--dark-nav-link);
+      }
+
+      .nav a:hover {
+        color: var(--light-breadcrumb-link-hover);
+      }
+
+      .nav a.dark-mode:hover {
+        color: var(--dark-nav-link-hover);
+      }
+
+      .nav .nav-item {
+        display: inline-block;
+        padding: 10px;
+      }
+
+      .nav .nav-item.active {
+        font-weight: bold;
+      }
+
+      .table-container {
+        background-color: var(--light-background);
+        color: var(--light-text);
+        border-radius: 0.375rem;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+        transition: background-color 0.3s, color 0.3s;
+        overflow-x: auto;
+        max-width: 100%;
+        box-sizing: border-box;
+      }
+
+      .table-container.dark-mode {
+        background-color: var(--dark-background);
+        color: var(--dark-text);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 15px;
+        text-align: left;
+        vertical-align: middle;
+        word-wrap: break-word;
+      }
+
+      th {
+        background-color: #f8f9fa;
+        border-bottom: 2px solid #5a6268;
+        transition: background-color 0.3s, color 0.3s;
+      }
+
+      .table thead th {
+        vertical-align: bottom;
+        border-bottom: 1px solid #5a6268;
+      }
+
+      th.dark-mode {
+        background-color: var(--dark-table-header-bg);
+        border-bottom: 2px solid #5a6268;
+        color: var(--dark-table-header-text);
+      }
+
+      td {
+        transition: background-color 0.3s, color 0.3s;
+      }
+
+      td.dark-mode {
+        background-color: var(--dark-table-cell-bg);
+        color: var(--dark-table-cell-text);
+      }
+
+      tr:hover {
+        background-color: #f1f1f1;
+      }
+
+      tr.dark-mode:hover {
+        background-color: var(--dark-table-row-hover-bg);
+      }
+
+      .actions {
+        text-align: right;
+      }
+
+      .icon {
+        margin-right: 8px;
+      }
+
+      .file-size {
+        text-align: right;
+      }
+
+      .btn-upload,
+      .btn-create {
+        margin-bottom: 10px;
+        padding: 8px 12px;
+        border: 1px solid transparent;
+        border-radius: 0.375rem;
+        color: #fff;
+        cursor: pointer;
+        transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
+        display: inline-block;
+        font-size: 14px;
+      }
+
+      .btn-upload {
+        background-color: var(--light-button-bg);
+        box-shadow: 0 2px 4px var(--light-button-shadow);
+      }
+
+      .btn-upload:hover {
+        background-color: var(--light-button-bg-hover);
+        border-color: var(--light-button-border);
+        box-shadow: 0 4px 8px var(--light-button-shadow);
+      }
+
+      .btn-upload.dark-mode {
+        background-color: var(--dark-button-bg);
+        box-shadow: 0 2px 4px var(--dark-button-shadow);
+      }
+
+      .btn-upload.dark-mode:hover {
+        background-color: var(--dark-button-bg-hover);
+        border-color: var(--dark-button-border);
+        box-shadow: 0 4px 8px var(--dark-button-shadow);
+      }
+
+      .btn-create {
+        background-color: #ffc107;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
+
+      .btn-create:hover {
+        background-color: #e0a800;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      }
+
+      .btn-create.dark-mode {
+        background-color: var(--dark-button-bg);
+      }
+
+      .btn-create.dark-mode:hover {
+        background-color: var(--dark-button-bg-hover);
+      }
+
+      .theme-switcher {
+        display: flex;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+
+      .theme-switcher label {
+        margin-right: 10px;
+        font-size: 16px;
+        color: var(--light-text);
+        transition: color 0.3s;
+      }
+
+      .theme-switcher input {
+        appearance: none;
+        background-color: #ccc;
+        width: 60px;
+        height: 30px;
+        border-radius: 15px;
+        position: relative;
+        cursor: pointer;
+        transition: background-color 0.3s;
+      }
+
+      .theme-switcher input:checked {
+        background-color: #2b2b2b;
+      }
+
+      .theme-switcher input:checked::before {
+        transform: translateX(30px);
+      }
+
+      .theme-switcher input::before {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background-color: #fff;
+        transition: transform 0.3s;
+      }
+
+      .theme-hidden {
+        visibility: hidden;
+      }
+
+      .theme-switcher-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+
+      .actions .action-btn {
+        min-width: 50px;
+        margin-bottom: 5px;
+      }
+
+      @media (max-width: 768px) {
+        .breadcrumb {
+          margin-bottom: 15px;
+          padding: 10px;
+        }
+
+        th,
+        td {
+          padding: 12px;
+          font-size: 16px;
+        }
+
+        .btn-upload,
+        .btn-create {
+          padding: 10px;
+          font-size: 14px;
+          margin-right: 10px;
+          display: inline-block;
+          flex: 1;
+        }
+
+        .btn-container {
+          display: flex;
+          gap: 10px;
+        }
+
+        .theme-switcher-container {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+      }
+
+      @media (max-width: 576px) {
+        .breadcrumb {
+          margin-bottom: 10px;
+          padding: 8px;
+        }
+
+        th,
+        td {
+          padding: 10px;
+          font-size: 14px;
+        }
+
+        .btn-upload,
+        .btn-create {
+          padding: 10px;
+          font-size: 14px;
+          margin-bottom: 10px;
+          box-sizing: border-box;
+          flex: 1;
+        }
+
+        .btn-container {
+          display: flex;
+          gap: 10px;
+        }
+
+        .icon {
+          font-size: 16px;
+        }
+
+        .actions .action-btn {
+          min-width: 100%;
+        }
+      }
+
+      /* Modal Styles */
+      .modal-content {
+        background-color: var(--light-modal-bg);
+        color: var(--light-modal-body-text);
+        transition: background-color 0.3s, color 0.3s;
+      }
+
+      .modal-content.dark-mode {
+        background-color: var(--dark-modal-bg);
+        color: var(--dark-modal-body-text);
+      }
+
+      .modal-header {
+        background-color: var(--light-modal-header-bg);
+        color: var(--light-modal-header-text);
+        padding: 15px;
+        border-bottom: 1px solid #e9ecef;
+      }
+
+      .modal-header.dark-mode {
+        background-color: var(--dark-modal-header-bg);
+        color: var(--dark-modal-header-text);
+      }
+
+      .modal-body {
+        background-color: var(--light-modal-body-bg);
+        color: var(--light-modal-body-text);
+        padding: 15px;
+      }
+
+      .modal-body.dark-mode {
+        background-color: var(--dark-modal-body-bg);
+        color: var(--dark-modal-body-text);
+      }
+
+      .modal-footer {
+        border-top: 1px solid #e9ecef;
+        background-color: var(--light-background);
+        padding: 10px;
+      }
+
+      .modal-footer.dark-mode {
+        border-top: 1px solid #5a6268;
+        background-color: var(--dark-background);
+      }
+
+      .modal-footer .btn {
+        margin: 0 5px;
+      }
+
+      /* Label Styles */
+      .form-label {
+        color: var(--light-text);
+        transition: color 0.3s;
+        font-size: 16px;
+        margin-bottom: 8px;
+      }
+
+      .form-label.dark-mode {
+        color: var(--dark-text);
+      }
+    </style>
+  </head>
+  <body class="theme-hidden">
+    <div class="container mt-5">
+      <h1 class="mb-4">File Manager</h1>
+
+      <div class="d-flex justify-content-between mb-4">
+        <div class="button-container">
+          <a
+            href="/uploadform?dir={{ .CurrentPath }}"
+            class="btn btn-primary btn-upload"
+          >
+            <i class="fas fa-upload"></i>
+          </a>
+
+          <a
+            href="#"
+            class="btn btn-warning btn-create"
+            data-toggle="modal"
+            data-target="#createNewModal"
+          >
+            <i class="fas fa-plus"></i>
+          </a>
+        </div>
+        <div>
+          <div class="theme-switcher-container d-flex align-items-center">
+            <div class="theme-switcher">
+              <input type="checkbox" id="theme-switch" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+          {{ range .Breadcrumbs }}
+          <li class="breadcrumb-item">
+            <a href="/list?dir={{ .Path }}">{{ .Name }}</a>
+          </li>
+          {{ end }}
+        </ol>
+      </nav>
+
+      <div class="table-container">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th class="file-size">Size</th>
+              <th class="last-modified">Last Modified</th>
+              <th class="actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <span class="icon">📁</span>
+                <a href="/list?dir={{ .PrevPath }}" class="font-weight-bold"
+                  >. . . /</a
+                >
+              </td>
+              <td class="file-size"></td>
+              <td class="last-modified"></td>
+              <td class="actions"></td>
+            </tr>
+
+            {{ if .Files }} {{ range .Files }}
+            <tr>
+              <td>
+                {{ if .IsDir }}
+                <span class="icon">📁</span>
+                <a href="/list?dir={{ .Path }}" class="font-weight-bold"
+                  >{{ .Name }}</a
+                >
+                {{ else }} {{ if or (eq (toLower (ext .Name)) ".zip") (eq
+                (toLower (ext .Name)) ".tar") (eq (toLower (ext .Name)) ".gz")
+                }}
+                <span class="icon">📦</span>
+                <a href="/zipview?file={{ .Path }}" class="font-weight-bold"
+                  >{{ .Name }}</a
+                >
+                {{ else }}
+                <span class="icon">📄</span>
+                <a href="/edit?file={{ .Path }}" class="font-weight-bold"
+                  >{{ .Name }}</a
+                >
+                {{ end }} {{ end }}
+              </td>
+              <td class="file-size">
+                {{ if not .IsDir }}{{ .FormattedSize }}{{ end }}
+              </td>
+              <td class="last-modified">{{ .LastModified }}</td>
+              <td class="actions">
+                {{ if .IsDir }}
+                <a
+                  href="#"
+                  class="btn btn-sm btn-warning action-btn"
+                  aria-label="Rename {{ .Name }}"
+                  data-toggle="modal"
+                  data-target="#renameModal"
+                  data-file="{{ .Path }}"
+                  onclick="setFilePath('{{ .Path }}', '{{ .Name }}');"
+                >
+                  <i class="fas fa-edit"></i>
+                </a>
+                <a
+                  href="/delete?file={{ .Path }}"
+                  class="btn btn-sm btn-danger action-btn"
+                  aria-label="Delete {{ .Name }}"
+                  onclick="return confirm('Apakah Anda yakin ingin menghapus direktori ini?');"
+                >
+                  <i class="fas fa-trash"></i>
+                </a>
+                {{ else }}
+                <a
+                  href="/edit?file={{ .Path }}"
+                  class="btn btn-sm btn-info action-btn"
+                  aria-label="Edit {{ .Name }}"
+                >
+                  <i class="fas fa-pencil-alt"></i>
+                </a>
+                {{ $ext := toLower (ext .Name) }} {{ if or (eq $ext ".zip") (eq
+                $ext ".tar") (eq $ext ".gz") }}
+                <a
+                  href="/unzip?file={{ .Path }}"
+                  class="btn btn-sm btn-warning action-btn"
+                  aria-label="Extract {{ .Name }}"
+                  onclick="return confirm('Apakah Anda yakin ingin mengekstrak file ini?');"
+                >
+                  <i class="fa fa-file-archive"></i>
+                </a>
+                {{ end }}
+                <a
+                  href="/download?file={{ .Path }}"
+                  class="btn btn-sm btn-success action-btn"
+                  aria-label="Download {{ .Name }}"
+                >
+                  <i class="fas fa-download"></i>
+                </a>
+                <a
+                  href="#"
+                  class="btn btn-sm btn-warning action-btn"
+                  aria-label="Rename {{ .Name }}"
+                  data-toggle="modal"
+                  data-target="#renameModal"
+                  data-file="{{ .Path }}"
+                  onclick="setFilePath('{{ .Path }}', '{{ .Name }}');"
+                >
+                  <i class="fas fa-edit"></i>
+                </a>
+                <a
+                  href="/delete?file={{ .Path }}"
+                  class="btn btn-sm btn-danger action-btn"
+                  aria-label="Delete {{ .Name }}"
+                  onclick="return confirm('Apakah Anda yakin ingin menghapus file ini?');"
+                >
+                  <i class="fas fa-trash"></i>
+                </a>
+                {{ end }}
+              </td>
+            </tr>
+            {{ end }} {{ else }}
+            <tr>
+              <td colspan="4" class="text-center">
+                No files or directories found.
+              </td>
+            </tr>
+            {{ end }}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Rename Modal -->
+      <div
+        class="modal fade"
+        id="renameModal"
+        tabindex="-1"
+        role="dialog"
+        aria-labelledby="renameModalLabel"
+        aria-hidden="true"
+      >
+        <div class="modal-dialog" role="document">
+          <div class="modal-content border-0 rounded shadow-lg">
+            <div class="modal-header bg-primary text-white">
+              <h5 class="modal-title" id="renameModalLabel">
+                Rename File/Folder
+              </h5>
+              <button
+                type="button"
+                class="close text-white"
+                data-dismiss="modal"
+                aria-label="Close"
+              >
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <div class="modal-body">
+              <form id="renameForm" action="/rename" method="post">
+                <input type="hidden" id="oldFilePath" name="file" value="" />
+                <div class="form-group">
+                  <label for="newName">New Name:</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="newName"
+                    name="newName"
+                    required
+                    placeholder="Masukkan nama baru tanpa ekstensi"
+                  />
+                  <small class="form-text text-muted">
+                    Jika tidak ada ekstensi yang diberikan, ekstensi saat ini
+                    akan dipertahankan.
+                  </small>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">
+                  Rename
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div
+        class="modal fade"
+        id="createNewModal"
+        tabindex="-1"
+        role="dialog"
+        aria-labelledby="createNewModalLabel"
+        aria-hidden="true"
+      >
+        <div class="modal-dialog" role="document">
+          <div class="modal-content border-0 rounded shadow-lg">
+            <div class="modal-header bg-primary text-white">
+              <h5 class="modal-title" id="createNewModalLabel">
+                Create New File/Folder
+              </h5>
+              <button
+                type="button"
+                class="close text-white"
+                data-dismiss="modal"
+                aria-label="Close"
+              >
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <div class="modal-body">
+              <form id="createNewForm" action="/create" method="get">
+                <div class="form-group">
+                  <label>Select Type:</label><br />
+                  <input
+                    type="radio"
+                    id="createFile"
+                    name="type"
+                    value="file"
+                    checked
+                  />
+                  <label for="createFile">File</label>
+                  <input type="radio" id="createDir" name="type" value="dir" />
+                  <label for="createDir">Directory</label>
+                </div>
+                <div class="form-group">
+                  <input
+                    type="hidden"
+                    id="currentPath"
+                    name="currentPath"
+                    value="{{ .CurrentPath }}"
+                  />
+                  <label for="name">Name:</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="name"
+                    name="name"
+                    required
+                    placeholder="Enter name"
+                  />
+                  <small class="form-text text-muted">
+                    Please enter a name for the new file or directory.
+                  </small>
+                </div>
+                <div class="modal-footer">
+                  <button
+                    type="button"
+                    class="btn btn-secondary"
+                    data-dismiss="modal"
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" class="btn btn-primary">Create</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+      // Load theme from localStorage
+      document.addEventListener("DOMContentLoaded", function () {
+        const isDarkMode = localStorage.getItem("dark-mode") === "true";
+        document.body.classList.toggle("dark-mode", isDarkMode);
+
+        // Toggle dark mode for breadcrumbs
+        document
+          .querySelectorAll(".breadcrumb")
+          .forEach((el) => el.classList.toggle("dark-mode", isDarkMode));
+
+        // Toggle dark mode for table containers
+        document
+          .querySelectorAll(".table-container")
+          .forEach((el) => el.classList.toggle("dark-mode", isDarkMode));
+
+        // Toggle dark mode for table headers and cells
+        document
+          .querySelectorAll("th")
+          .forEach((el) => el.classList.toggle("dark-mode", isDarkMode));
+        document
+          .querySelectorAll("td")
+          .forEach((el) => el.classList.toggle("dark-mode", isDarkMode));
+
+        // Toggle dark mode for breadcrumb links
+        document
+          .querySelectorAll(".breadcrumb a")
+          .forEach((el) => el.classList.toggle("dark-mode", isDarkMode));
+
+        // Toggle dark mode for navigation
+        document
+          .querySelectorAll(".nav")
+          .forEach((el) => el.classList.toggle("dark-mode", isDarkMode));
+
+        // Set theme switcher state
+        document.body.classList.remove("theme-hidden");
+        document.getElementById("theme-switch").checked = isDarkMode;
+      });
+
+      // Save theme to localStorage
+      document
+        .getElementById("theme-switch")
+        .addEventListener("change", function () {
+          const isDarkMode = this.checked;
+          localStorage.setItem("dark-mode", isDarkMode);
+
+          // Toggle dark mode for body and relevant elements
+          document.body.classList.toggle("dark-mode", isDarkMode);
+
+          document
+            .querySelectorAll(".breadcrumb")
+            .forEach((el) => el.classList.toggle("dark-mode", isDarkMode));
+          document
+            .querySelectorAll(".table-container")
+            .forEach((el) => el.classList.toggle("dark-mode", isDarkMode));
+          document
+            .querySelectorAll("th")
+            .forEach((el) => el.classList.toggle("dark-mode", isDarkMode));
+          document
+            .querySelectorAll("td")
+            .forEach((el) => el.classList.toggle("dark-mode", isDarkMode));
+          document
+            .querySelectorAll(".breadcrumb a")
+            .forEach((el) => el.classList.toggle("dark-mode", isDarkMode));
+          document
+            .querySelectorAll(".nav")
+            .forEach((el) => el.classList.toggle("dark-mode", isDarkMode));
+        });
+
+      function setFilePath(filePath, fileName) {
+        document.getElementById("oldFilePath").value = filePath;
+        document.getElementById("renameModalLabel").innerText =
+          "Rename " + fileName;
+      }
+
+      document
+        .getElementById("createNewForm")
+        .addEventListener("submit", function (event) {
+          var form = event.target;
+          var nameInput = form.querySelector('input[name="name"]');
+          var typeInput = form.querySelector('input[name="type"]:checked');
+
+          if (nameInput && typeInput) {
+            // Construct the new action URL based on the selected type
+            form.action =
+              "/create?" +
+              typeInput.value +
+              "=" +
+              encodeURIComponent(nameInput.value) +
+              "&type=" +
+              typeInput.value;
+          }
+        });
+    </script>
+  </body>
+</html>
