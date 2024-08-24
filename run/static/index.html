@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -21,6 +21,10 @@
         --dark-color: #fff;
         --dark-button-bg: #555;
         --dark-button-hover: #666;
+        --container-max-width: 800px; /* Adjust width as needed */
+        --output-bg: #f9f9f9; /* Light background color for output */
+        --output-border: #ddd; /* Light border color for output */
+        --output-text-color: #333; /* Dark text color for better readability */
       }
 
       body {
@@ -31,12 +35,7 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-      }
-
-      h1 {
-        margin-bottom: var(--padding-medium);
-        font-size: 24px;
-        color: var(--primary-color);
+        margin: 0;
       }
 
       .grid-container {
@@ -50,7 +49,9 @@
         border-radius: var(--border-radius);
         box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         width: 100%;
-        max-width: 1200px;
+        max-width: var(--container-max-width);
+        margin-top: var(--padding-medium);
+        margin-bottom: var(--padding-medium);
       }
 
       .grid-item {
@@ -107,7 +108,7 @@
         display: flex;
         gap: var(--padding-small);
         flex-wrap: wrap;
-        max-width: 600px;
+        max-width: var(--container-max-width);
         width: 100%;
       }
 
@@ -142,14 +143,19 @@
 
       #output {
         margin-top: var(--padding-medium);
-        white-space: pre-wrap;
-        background-color: var(--card-bg);
+        background-color: var(--output-bg);
+        color: var(--output-text-color);
         padding: var(--padding-small);
-        border: 1px solid var(--card-border);
+        border: 1px solid var(--output-border);
         border-radius: var(--border-radius);
         width: 100%;
-        max-width: 600px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        max-width: var(--container-max-width);
+        max-height: 400px; /* Adjust height as needed */
+        overflow-x: auto; /* Horizontal scrollbar if content exceeds width */
+        overflow-y: auto; /* Vertical scrollbar if content exceeds height */
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        font-family: "Courier New", Courier, monospace; /* Monospace font for output */
+        white-space: pre-wrap; /* Preserve whitespace and line breaks */
       }
 
       @media (max-width: 1200px) {
@@ -180,7 +186,7 @@
         }
         const url =
           cmd === "custom"
-            ? `/api/execute?value=custom`
+            ? "/api/execute?value=custom"
             : `/api/execute?value=${encodeURIComponent(cmd)}`;
         const body =
           cmd === "custom"
@@ -239,7 +245,7 @@
                 button.setAttribute(
                   "aria-label",
                   `Execute command: ${entry.Name}`
-                ); // Aksesibilitas
+                );
 
                 const tooltip = document.createElement("span");
                 tooltip.className = "tooltip";
@@ -270,7 +276,214 @@
     </script>
   </head>
   <body>
-    <h1>Command Executor</h1>
+    <div class="grid-container" id="command-grid">
+    </div>
+    <div id="customCommandBlock">
+      <input
+        type="text"
+        id="customCommandInput"
+        name="customCommand"
+        placeholder="Masukkan perintah kustom"
+        aria-label="Custom command input"
+      />
+      <button
+        id="executeCustomButton"
+        type="button"
+        onclick="executeCommand('custom')"
+        aria-label="Execute custom command"
+      >
+        Execute
+      </button>
+    </div>
+    <pre id="output"></pre>
+  </body>
+</html> -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Command Executor</title>
+    <style>
+      :root {
+        --primary-color: #007bff;
+        --primary-hover: #0056b3;
+        --danger-color: tomato;
+        --danger-hover: #e74c3c;
+        --background-color: #f4f4f4;
+        --card-bg: #fff;
+        --card-border: #ccc;
+        --text-color: #333;
+        --padding-small: 10px;
+        --padding-medium: 20px;
+        --border-radius: 8px;
+        --dark-background: #222;
+        --dark-color: #fff;
+        --dark-button-bg: #555;
+        --dark-button-hover: #666;
+        --container-max-width: 800px;
+        --output-bg: #f9f9f9;
+        --output-border: #ddd;
+        --output-text-color: #333;
+        --button-font-size: 14px;
+        --tooltip-font-size: 14px;
+      }
+
+      body {
+        font-family: Arial, sans-serif;
+        padding: var(--padding-medium);
+        background-color: var(--background-color);
+        color: var(--text-color);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin: 0;
+      }
+
+      .grid-container {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: var(--padding-small);
+        padding: var(--padding-medium);
+        background-color: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: var(--border-radius);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: var(--container-max-width);
+        margin-top: var(--padding-medium);
+      }
+
+      .grid-item {
+        flex: 1 1 calc(25% - var(--padding-small));
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: relative;
+        max-width: 100%;
+      }
+
+      .grid-item button {
+        width: 100%;
+        padding: var(--padding-small);
+        background-color: var(--primary-color);
+        color: #fff;
+        border: none;
+        border-radius: var(--border-radius);
+        cursor: pointer;
+        font-size: var(--button-font-size);
+        transition: background-color 0.3s ease, transform 0.2s,
+          box-shadow 0.3s ease;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+
+      .grid-item button:hover {
+        background-color: var(--primary-hover);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 10px rgba(0, 0, 0, 0.2);
+      }
+
+      .tooltip {
+        display: none;
+        position: absolute;
+        bottom: 125%;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: var(--padding-small);
+        background-color: var(--text-color);
+        color: #fff;
+        border-radius: 4px;
+        font-size: var(--tooltip-font-size);
+        white-space: nowrap;
+        z-index: 10;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+
+      .grid-item button:hover .tooltip {
+        display: block;
+        opacity: 1;
+      }
+
+      #customCommandBlock {
+        margin-top: var(--padding-medium);
+        display: flex;
+        gap: var(--padding-small);
+        flex-wrap: wrap;
+        max-width: var(--container-max-width);
+        width: 100%;
+      }
+
+      #customCommandInput {
+        flex: 1;
+        padding: var(--padding-small);
+        border: 1px solid var(--card-border);
+        border-radius: var(--border-radius);
+        box-sizing: border-box;
+        transition: border 0.3s ease, box-shadow 0.3s ease;
+      }
+
+      #customCommandInput:focus {
+        border-color: var(--primary-color);
+        outline: none;
+        box-shadow: 0 0 4px rgba(0, 123, 255, 0.5);
+      }
+
+      #executeCustomButton {
+        padding: var(--padding-small) var(--padding-medium);
+        border: none;
+        border-radius: var(--border-radius);
+        background-color: var(--danger-color);
+        color: white;
+        cursor: pointer;
+        transition: background-color 0.3s ease, transform 0.2s,
+          box-shadow 0.3s ease;
+      }
+
+      #executeCustomButton:hover {
+        background-color: var(--danger-hover);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+      }
+
+      #output {
+        margin-top: var(--padding-medium);
+        background-color: var(--output-bg);
+        color: var(--output-text-color);
+        padding: var(--padding-small);
+        border: 1px solid var(--output-border);
+        border-radius: var(--border-radius);
+        width: 100%;
+        max-width: var(--container-max-width);
+        max-height: 400px;
+        overflow-x: auto;
+        overflow-y: auto;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        font-family: "Courier New", Courier, monospace;
+        white-space: pre-wrap;
+      }
+
+      @media (max-width: 1200px) {
+        .grid-item {
+          flex: 1 1 calc(33.33% - var(--padding-small));
+        }
+      }
+
+      @media (max-width: 800px) {
+        .grid-item {
+          flex: 1 1 calc(50% - var(--padding-small));
+        }
+      }
+
+      @media (max-width: 480px) {
+        .grid-item {
+          flex: 1 1 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
     <div class="grid-container" id="command-grid">
       <!-- Buttons will be inserted here dynamically -->
     </div>
@@ -292,5 +505,104 @@
       </button>
     </div>
     <pre id="output"></pre>
+
+    <script>
+      async function executeCommand(cmd) {
+        const customCommand =
+          document.getElementById("customCommandInput").value;
+        if (cmd === "custom" && customCommand.trim() === "") {
+          displayError("Perintah kustom tidak boleh kosong");
+          return;
+        }
+        const url =
+          cmd === "custom"
+            ? "/api/execute?value=custom"
+            : `/api/execute?value=${encodeURIComponent(cmd)}`;
+        const body =
+          cmd === "custom"
+            ? `custom_command=${encodeURIComponent(customCommand)}`
+            : null;
+
+        try {
+          const response = await sendCommandRequest(url, body);
+          displayOutput(response);
+        } catch (error) {
+          console.error("Kesalahan pengambilan:", error);
+          displayError("Kesalahan saat mengeksekusi perintah");
+        }
+      }
+
+      async function sendCommandRequest(url, body) {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: body,
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Kesalahan ${response.status}: ${errorText}`);
+        }
+
+        return response.json();
+      }
+
+      function displayOutput(result) {
+        const output = document.getElementById("output");
+        output.textContent = result.output;
+      }
+
+      function displayError(message) {
+        const output = document.getElementById("output");
+        output.textContent = message;
+      }
+
+      async function loadCommands() {
+        try {
+          const response = await fetch("/api/list");
+          if (response.ok) {
+            const data = await response.json();
+            if (Array.isArray(data.commands)) {
+              const gridContainer = document.getElementById("command-grid");
+              gridContainer.innerHTML = "";
+
+              data.commands.forEach((entry) => {
+                const button = document.createElement("button");
+                button.textContent = entry.Name;
+                button.onclick = () => executeCommand(entry.Value);
+                button.setAttribute(
+                  "aria-label",
+                  `Execute command: ${entry.Name}`
+                );
+
+                const tooltip = document.createElement("span");
+                tooltip.className = "tooltip";
+                tooltip.textContent = entry.Description;
+                button.appendChild(tooltip);
+
+                const gridItem = document.createElement("div");
+                gridItem.className = "grid-item";
+                gridItem.appendChild(button);
+                gridContainer.appendChild(gridItem);
+              });
+            } else {
+              document.getElementById("output").textContent =
+                "Kesalahan memuat perintah";
+            }
+          } else {
+            document.getElementById("output").textContent =
+              "Kesalahan memuat perintah";
+          }
+        } catch (error) {
+          console.error("Kesalahan pengambilan:", error);
+          document.getElementById("output").textContent =
+            "Kesalahan memuat perintah";
+        }
+      }
+
+      document.addEventListener("DOMContentLoaded", loadCommands);
+    </script>
   </body>
 </html>

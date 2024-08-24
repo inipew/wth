@@ -3,9 +3,11 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"run/internal"
+	"run/internal/config"
+	"run/internal/utils"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -29,7 +31,7 @@ func NewExecuteCommand() *cobra.Command {
 
 // executeCommand finds and runs a command based on the provided value
 func executeCommand(cmd *cobra.Command, args []string) {
-	cfg, err := internal.LoadConfig(configFile)
+	cfg, err := config.LoadConfig(configFile)
 	if err != nil {
 		fmt.Printf("Error loading config: %v\n", err)
 		return
@@ -43,9 +45,10 @@ func executeCommand(cmd *cobra.Command, args []string) {
 	}
 
 	// Replace paths placeholders in the command string
-	command.Command = internal.ReplacePaths(command.Command, cfg.Paths)
+	command.Command = config.ReplacePaths(command.Command, cfg.Paths)
+	logrus.Debugf("commands: %s", command.Command)
 	
-	output, err := internal.RunCommand(context.Background(), command.Command, timeout)
+	output, err := utils.RunCommand(context.Background(), command.Command, timeout)
 	if err != nil {
 		fmt.Printf("Failed to execute command: %v\n", err)
 		return
@@ -55,10 +58,11 @@ func executeCommand(cmd *cobra.Command, args []string) {
 }
 
 // findCommandByValue searches for a command by its value
-func findCommandByValue(cfg *internal.Config, value string) (*internal.Command, bool) {
+func findCommandByValue(cfg *config.Config, value string) (*config.Command, bool) {
 	for _, cmd := range cfg.Commands {
 		if cmd.Value == value {
-			return &cmd, true
+			cmdCopy := cmd
+			return &cmdCopy, true
 		}
 	}
 	return nil, false

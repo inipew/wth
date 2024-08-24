@@ -4,7 +4,9 @@ import (
 	"context"
 	"net/http"
 	"os"
-	"run/internal"
+	"run/internal/config"
+	"run/internal/handler"
+	"run/internal/utils"
 	"sync"
 	"time"
 
@@ -24,7 +26,7 @@ func NewAPICommand() *cobra.Command {
 
 // startAPI initializes and starts the API server.
 func startAPI(cmd *cobra.Command, args []string) {
-	var cfg *internal.Config
+	var cfg *config.Config
 	var err error
 	var cfgMutex sync.RWMutex
 
@@ -34,7 +36,7 @@ func startAPI(cmd *cobra.Command, args []string) {
 		logrus.Fatalf("Configuration file does not exist: %s", configFile)
 	}
 	// Load initial config
-	cfg, err = internal.LoadConfig(configFile)
+	cfg, err = config.LoadConfig(configFile)
 	if err != nil {
 		logrus.Fatalf("Error loading config: %v", err)
 	}
@@ -45,7 +47,7 @@ func startAPI(cmd *cobra.Command, args []string) {
 
 	// Start file watcher to reload config on changes
 	go func() {
-		err := internal.WatchConfig(ctx, configFile, func(newCfg *internal.Config) {
+		err := utils.WatchConfig(ctx, configFile, func(newCfg *config.Config) {
 			logrus.Println("Configuration file changed. Reloading...")
 			cfgMutex.Lock()
 			cfg = newCfg
@@ -59,13 +61,13 @@ func startAPI(cmd *cobra.Command, args []string) {
 	// Define HTTP handlers
 	http.HandleFunc("/api/execute", loggingMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		cfgMutex.RLock()
-		internal.CommandHandler(cfg, timeout)(w, r)
+		handler.CommandHandler(cfg, timeout)(w, r)
 		cfgMutex.RUnlock()
 	}))
 
 	http.HandleFunc("/api/list", loggingMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		cfgMutex.RLock()
-		internal.ListCommandsHandler(cfg)(w, r)
+		handler.ListCommandsHandler(cfg)(w, r)
 		cfgMutex.RUnlock()
 	}))
 

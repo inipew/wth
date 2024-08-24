@@ -2,7 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"run/internal"
+	"run/internal/config"
+	"run/internal/utils"
 
 	"github.com/spf13/cobra"
 )
@@ -22,11 +23,11 @@ func NewListCommand() *cobra.Command {
 
 // listCommands loads the configuration and displays the list of commands
 func listCommands(cmd *cobra.Command, args []string) {
-	cfg, err := internal.LoadConfig(configFile)
+	cfg, err := config.LoadConfig(configFile)
 	if err != nil {
 		fmt.Printf("Error loading config: %v\n", err)
 		return
 	}
 
-	internal.DisplayCommands(cfg)
+	utils.DisplayCommands(cfg)
 }
