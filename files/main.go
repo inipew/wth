@@ -24,6 +24,11 @@ func main() {
     http.HandleFunc("/api/files", handlers.FileHandler)
     http.HandleFunc("/api/files/rename", handlers.RenameHandler)
     http.HandleFunc("/api/files/delete", handlers.DeleteHandler)
+    http.HandleFunc("/api/files/view_archive", handlers.ArchiveHandler)
+    http.HandleFunc("/api/files/upload", handlers.UploadFileHandler)
+    http.HandleFunc("/api/files/view_file", handlers.ViewFileHandler)
+    http.HandleFunc("/api/files/save_edit", handlers.SaveEditHandler)
+
 
     // Start server
     log.Printf("Server running on http://localhost%s\n", port)
