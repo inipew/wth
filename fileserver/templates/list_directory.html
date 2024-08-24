@@ -461,7 +461,6 @@
         margin: 0 5px;
       }
 
-      /* Label Styles */
       .form-label {
         color: var(--light-text);
         transition: color 0.3s;
@@ -644,7 +643,6 @@
         </table>
       </div>
 
-      <!-- Rename Modal -->
       <div
         class="modal fade"
         id="renameModal"
@@ -856,7 +854,6 @@
           var typeInput = form.querySelector('input[name="type"]:checked');
 
           if (nameInput && typeInput) {
-            // Construct the new action URL based on the selected type
             form.action =
               "/create?" +
               typeInput.value +
