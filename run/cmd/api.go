@@ -7,7 +7,6 @@ import (
 	"run/internal/config"
 	"run/internal/handler"
 	"run/internal/utils"
-	"sync"
 	"time"
 
 	"github.com/rs/cors"
@@ -29,7 +28,7 @@ func NewAPICommand() *cobra.Command {
 func startAPI(cmd *cobra.Command, args []string) {
 	var cfg *config.Config
 	var err error
-	var cfgMutex sync.RWMutex
+	var configFile = "./config.ini"
 
 	// Log path and file check
 	logrus.Infof("Loading config from: %s", configFile)
@@ -50,9 +49,7 @@ func startAPI(cmd *cobra.Command, args []string) {
 	go func() {
 		err := utils.WatchConfig(ctx, configFile, func(newCfg *config.Config) {
 			logrus.Println("Configuration file changed. Reloading...")
-			cfgMutex.Lock()
 			cfg = newCfg
-			cfgMutex.Unlock()
 		})
 		if err != nil {
 			logrus.Fatalf("Error watching config: %v", err)
@@ -63,18 +60,14 @@ func startAPI(cmd *cobra.Command, args []string) {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/api/execute", loggingMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		cfgMutex.RLock()
 		handler.CommandHandler(cfg, timeout)(w, r)
-		cfgMutex.RUnlock()
 	}))
 
 	mux.HandleFunc("/api/list", loggingMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		cfgMutex.RLock()
 		handler.ListCommandsHandler(cfg)(w, r)
-		cfgMutex.RUnlock()
 	}))
 
-	mux.Handle("/", http.FileServer(http.Dir("./static")))
+	mux.Handle("/", http.FileServer(http.Dir("./frontend/dist")))
 
 	port := ":5678"
 	logrus.Infof("Starting API server on port %s", port)

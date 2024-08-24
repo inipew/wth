@@ -46,11 +46,10 @@ func setupCommands() *cobra.Command {
 	}
 
 	// Register commands
-	rootCmd.AddCommand(cmd.NewListCommand())
 	rootCmd.AddCommand(cmd.NewExecuteCommand())
 	rootCmd.AddCommand(cmd.NewAPICommand())
 
-	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "config.ini", "Path to the INI configuration file")
+	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", configFile, "Path to the INI configuration file")
 	return rootCmd
 }
 

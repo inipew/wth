@@ -8,12 +8,6 @@ import (
 )
 
 func UploadFileHandler(w http.ResponseWriter, r *http.Request) {
-	enableCORS(w)
-
-	if r.Method == http.MethodOptions {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
 	if r.Method == http.MethodPost {
 		// Parse form data
 		err := r.ParseMultipartForm(10 << 20) // 10 MB limit

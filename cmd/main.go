@@ -1,81 +1,51 @@
 package main
 
 import (
+	"cmd/internal"
+	"flag"
 	"fmt"
-	"os"
-	"strings"
 )
 
-type Command struct {
-    Name        string
-    Description string
-    Run         func(args []string)
-}
-
-type CLI struct {
-    commands map[string]Command
-}
-
-func NewCLI() *CLI {
-    return &CLI{commands: make(map[string]Command)}
-}
-
-func (cli *CLI) AddCommand(cmd Command) {
-    cli.commands[cmd.Name] = cmd
-}
-
-func (cli *CLI) Execute() {
-    if len(os.Args) < 2 {
-        fmt.Println("Please specify a command.")
-        cli.printHelp()
-        return
-    }
-
-    commandName := os.Args[1]
-    command, exists := cli.commands[commandName]
-
-    if !exists {
-        fmt.Printf("Unknown command: %s\n", commandName)
-        cli.printHelp()
-        return
-    }
-
-    command.Run(os.Args[2:])
-}
-
-func (cli *CLI) printHelp() {
-    fmt.Println("Available commands:")
-    for _, cmd := range cli.commands {
-        fmt.Printf("  %s: %s\n", cmd.Name, cmd.Description)
-    }
-}
-
 func main() {
-    cli := NewCLI()
+	cli := internal.NewCLI("1.0.0")
 
-    cli.AddCommand(Command{
-        Name:        "hello",
-        Description: "Prints hello message",
-        Run: func(args []string) {
-            fmt.Println("Hello, World!")
-        },
-    })
+	// Membuat command `hello`
+	helloFlags := &internal.FlagSetParser{flag.NewFlagSet("hello", flag.ContinueOnError)}
+	helloFlags.String("name", "World", "Name to greet")
 
-    cli.AddCommand(Command{
-        Name:        "goodbye",
-        Description: "Prints goodbye message",
-        Run: func(args []string) {
-            fmt.Println("Goodbye, World!")
-        },
-    })
+	helloCommand := &internal.Command{
+		Name:        "hello",
+		Description: "Prints a greeting message.",
+		Flags:       helloFlags,
+		Run: func(args []string) {
+			name := helloFlags.Lookup("name").Value.String()
+			fmt.Printf("Hello, %s!\n", name)
+		},
+		Help: "The `hello` command prints a greeting message. You can use the `--name` flag to specify the name.",
+	}
 
-    cli.AddCommand(Command{
-        Name:        "echo",
-        Description: "Echoes the input",
-        Run: func(args []string) {
-            fmt.Println(strings.Join(args, " "))
-        },
-    })
+	cli.AddCommand(helloCommand)
 
-    cli.Execute()
+	// Membuat command `goodbye`
+	goodbyeFlags := &internal.FlagSetParser{flag.NewFlagSet("goodbye", flag.ContinueOnError)}
+	goodbyeFlags.Bool("formal", false, "Use formal goodbye")
+
+	goodbyeCommand := &internal.Command{
+		Name:        "goodbye",
+		Description: "Prints a farewell message.",
+		Flags:       goodbyeFlags,
+		Run: func(args []string) {
+			if goodbyeFlags.Lookup("formal").Value.String() == "true" {
+				fmt.Println("Goodbye, have a great day!")
+			} else {
+				fmt.Println("Bye!")
+			}
+		},
+		Help: "The `goodbye` command prints a farewell message. You can use the `--formal` flag for a formal goodbye.",
+	}
+
+	cli.AddCommand(goodbyeCommand)
+
+	// Menjalankan CLI
+	cli.Execute()
 }

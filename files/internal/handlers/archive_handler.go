@@ -18,12 +18,6 @@ import (
 
 // ArchiveHandler handles requests for viewing ZIP, TAR, and TAR.GZ files
 func ArchiveHandler(w http.ResponseWriter, r *http.Request) {
-	enableCORS(w)
-
-	if r.Method == http.MethodOptions {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
 	archivePath := r.URL.Query().Get("path")
 	if archivePath == "" {
 		http.Error(w, "Missing 'path' query parameter", http.StatusBadRequest)

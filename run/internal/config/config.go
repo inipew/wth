@@ -100,10 +100,18 @@ func parseCommands(cfg *ini.File, config *Config) error {
 
 // ReplacePaths replaces placeholders in the command with corresponding values from paths map.
 func ReplacePaths(command string, paths map[string]string) string {
+	// Escape %% to __PERCENT__
+	command = strings.ReplaceAll(command, "%%", "__PERCENT__")
+
+	// Replace placeholders with actual path values
 	for key, value := range paths {
 		placeholder := "%" + key + "%"
 		command = strings.ReplaceAll(command, placeholder, value)
 		logrus.Infof("Mengganti placeholder %s dengan %s", placeholder, value)
 	}
+
+	// Restore __PERCENT__ to %
+	command = strings.ReplaceAll(command, "__PERCENT__", "%")
+
 	return command
 }
