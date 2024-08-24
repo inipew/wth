@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rs/cors"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -59,27 +60,36 @@ func startAPI(cmd *cobra.Command, args []string) {
 	}()
 
 	// Define HTTP handlers
-	http.HandleFunc("/api/execute", loggingMiddleware(func(w http.ResponseWriter, r *http.Request) {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/api/execute", loggingMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		cfgMutex.RLock()
 		handler.CommandHandler(cfg, timeout)(w, r)
 		cfgMutex.RUnlock()
 	}))
 
-	http.HandleFunc("/api/list", loggingMiddleware(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/list", loggingMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		cfgMutex.RLock()
 		handler.ListCommandsHandler(cfg)(w, r)
 		cfgMutex.RUnlock()
 	}))
 
-	http.Handle("/", http.FileServer(http.Dir("./static")))
+	mux.Handle("/", http.FileServer(http.Dir("./static")))
 
 	port := ":5678"
 	logrus.Infof("Starting API server on port %s", port)
 
 	// Create HTTP server instance
+	corsHandler := cors.New(cors.Options{
+		AllowedOrigins: []string{"*"}, // Change this to a more restrictive list if needed
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders: []string{"Content-Type"},
+	}).Handler(mux)
+
+	// Create HTTP server instance
 	server := &http.Server{
 		Addr:    port,
-		Handler: nil,
+		Handler: corsHandler,
 	}
 
 	// Run server in a goroutine

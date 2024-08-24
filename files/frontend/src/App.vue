@@ -1,10 +1,11 @@
 <template>
   <div id="app">
     <h1>File Manager</h1>
-    <div class="navigation" v-if="currentPath !== ''">
+    <div class="navigation" v-if="currentPath">
       <button class="btn" @click="navigateTo(previousPath)">Go Up</button>
-      <button class="btn" @click="openUploadModal">Upload File</button>
+      <button class="btn" @click="toggleUploadModal">Upload File</button>
     </div>
+
     <table v-if="files.length" class="file-table">
       <thead>
         <tr>
@@ -22,23 +23,19 @@
           <td></td>
         </tr>
         <tr v-for="file in files" :key="file.path">
-          <td @click="file.is_dir ? navigateTo(file.path) : null">
+          <td @click="file.is_dir && navigateTo(file.path)">
             <span v-if="file.is_dir">📁 {{ file.name }}</span>
             <span v-else>📄 {{ file.name }}</span>
           </td>
           <td>{{ file.formatted_size }}</td>
           <td>{{ file.last_modified }}</td>
           <td>
-            <button class="btn" @click.prevent="renameFile(file)">
-              Rename
-            </button>
-            <button class="btn" @click.prevent="deleteFile(file)">
-              Delete
-            </button>
+            <button class="btn" @click="renameFile(file)">Rename</button>
+            <button class="btn" @click="deleteFile(file)">Delete</button>
             <button
               v-if="isArchiveFile(file.name)"
               class="btn"
-              @click.prevent="openArchiveModal(file.path)"
+              @click="openArchiveModal(file.path)"
             >
               View Archive
             </button>
@@ -109,18 +106,16 @@ export default {
   methods: {
     async fetchFiles(path) {
       try {
-        const response = await axios.get(
+        const { data } = await axios.get(
           "http://157.230.247.64:4567/api/files",
-          {
-            params: { path },
-          }
+          { params: { path } }
         );
-        const data = response.data;
         this.files = data.files;
         this.currentPath = data.current_path;
         this.previousPath = data.previous_path;
       } catch (error) {
         console.error("Error fetching files:", error);
+        alert("Failed to fetch files.");
       }
     },
     navigateTo(path) {
@@ -128,7 +123,7 @@ export default {
     },
     async renameFile(file) {
       const newName = prompt("Enter new name:", file.name);
-      if (newName) {
+      if (newName && newName !== file.name) {
         try {
           await axios.post("http://157.230.247.64:4567/api/files/rename", {
             oldPath: file.path,
@@ -137,22 +132,33 @@ export default {
           this.fetchFiles(this.currentPath);
         } catch (error) {
           console.error("Error renaming file:", error);
+          alert("Failed to rename file.");
         }
       }
     },
     async deleteFile(file) {
-      const confirmDelete = confirm(
-        `Are you sure you want to delete ${file.name}?`
-      );
-      if (confirmDelete) {
+      if (confirm(`Are you sure you want to delete ${file.name}?`)) {
         try {
-          await axios.delete(`http://157.230.247.64:4567/api/files/delete`, {
+          await axios.delete("http://157.230.247.64:4567/api/files/delete", {
             data: { path: file.path },
           });
           this.fetchFiles(this.currentPath);
         } catch (error) {
           console.error("Error deleting file:", error);
+          alert("Failed to delete file.");
         }
+      }
+    },
+    async viewArchive(path) {
+      try {
+        const { data } = await axios.get(
+          "http://157.230.247.64:4567/api/files/view_archive",
+          { params: { path } }
+        );
+        this.archiveFiles = data.files;
+      } catch (error) {
+        console.error("Error fetching archive contents:", error);
+        alert("Failed to fetch archive contents.");
       }
     },
     openArchiveModal(path) {
@@ -163,8 +169,8 @@ export default {
       this.showModal = false;
       this.archiveFiles = [];
     },
-    openUploadModal() {
-      this.showUploadModal = true;
+    toggleUploadModal() {
+      this.showUploadModal = !this.showUploadModal;
     },
     closeUploadModal() {
       this.showUploadModal = false;
@@ -187,29 +193,13 @@ export default {
         await axios.post(
           "http://157.230.247.64:4567/api/files/upload",
           formData,
-          {
-            headers: {
-              "Content-Type": "multipart/form-data",
-            },
-          }
+          { headers: { "Content-Type": "multipart/form-data" } }
         );
         this.fetchFiles(this.currentPath);
         this.closeUploadModal();
       } catch (error) {
         console.error("Error uploading file:", error);
-      }
-    },
-    async viewArchive(path) {
-      try {
-        const response = await axios.get(
-          "http://157.230.247.64:4567/api/files/view_archive",
-          {
-            params: { path },
-          }
-        );
-        this.archiveFiles = response.data.files;
-      } catch (error) {
-        console.error("Error fetching archive contents:", error);
+        alert("Failed to upload file.");
       }
     },
     isArchiveFile(filename) {
@@ -233,7 +223,7 @@ export default {
 }
 
 .btn {
-  margin-left: 5px;
+  margin: 0 5px;
   padding: 10px 15px;
   border: none;
   border-radius: 5px;

@@ -20,16 +20,6 @@ type CommandResponse struct {
 // APIHandler handles HTTP requests for executing commands.
 func CommandHandler(config *cfg.Config, timeout time.Duration) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*") // Mengizinkan semua domain
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS") // Metode yang diizinkan
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type") // Header yang diizinkan
-
-		// Tangani permintaan preflight
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent) // Mengirim respons 204 No Content
-			return
-		}
-		
 		ctx, cancel := context.WithTimeout(r.Context(), timeout)
 		defer cancel()
 
