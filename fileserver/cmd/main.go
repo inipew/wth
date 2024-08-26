@@ -1,54 +1,3 @@
-// package main
-
-// import (
-// 	"fileserver/internal/handlers"
-// 	"fileserver/internal/middleware"
-// 	"fmt"
-// 	"log"
-// 	"net/http"
-// )
-
-// // Konstanta untuk konfigurasi server
-// const (
-// 	port       = ":5678"
-// 	uploadDir  = "./uploads"
-// )
-
-// func main() {
-// 	// Membuat direktori uploads jika belum ada
-// 	if err := handlers.CreateUploadDir(); err != nil {
-// 		log.Fatalf("Error creating upload directory: %v", err)
-// 	}
-
-// 	mux := http.NewServeMux()
-
-// 	// Setup routing
-// 	routes := []struct {
-// 		path    string
-// 		handler http.HandlerFunc
-// 	}{
-// 		{"/", handlers.ListDirectoryHandler},
-// 		{"/upload", handlers.UploadHandler},
-// 		{"/uploadform", handlers.UploadFormHandler},
-// 		{"/edit", handlers.EditHandler},
-// 		{"/delete", handlers.DeleteHandler},
-// 		{"/save", handlers.SaveHandler},
-// 		{"/download", handlers.DownloadHandler},
-// 		{"/zipview", handlers.ArchiveViewerHandler},
-// 		{"/unzip", handlers.UnzipHandler},
-// 		{"/rename", handlers.RenameHandler},
-// 	}
-
-// 	for _, route := range routes {
-// 		mux.Handle(route.path, middleware.LoggingMiddleware(route.handler))
-// 	}
-
-//		// Menjalankan server
-//		fmt.Printf("Server started at %s (upload dir: %s)\n", port, uploadDir)
-//		if err := http.ListenAndServe(port, mux); err != nil {
-//			log.Fatalf("Server failed: %v", err)
-//		}
-//	}
 package main
 
 import (
@@ -125,8 +74,11 @@ func main() {
 		{"/download", handlers.DownloadHandler},
 		{"/zipview", handlers.ArchiveViewerHandler},
 		{"/unzip", handlers.UnzipHandler},
-		{"/rename", handlers.RenameHandler},
+		// {"/rename", handlers.RenameHandler},
 		{"/create", handlers.MakeNewHandler},
+		{"/api/files/view", handlers.ViewHandler},
+		{"/api/files/rename", handlers.RenameHandlers},
+
 	}
 
 	for _, route := range routes {

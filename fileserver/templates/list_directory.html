@@ -667,7 +667,7 @@
               </button>
             </div>
             <div class="modal-body">
-              <form id="renameForm" action="/rename" method="post">
+              <form id="renameForm">
                 <input type="hidden" id="oldFilePath" name="file" value="" />
                 <div class="form-group">
                   <label for="newName">New Name:</label>
@@ -771,7 +771,7 @@
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-    <script>
+    <!-- <script>
       // Load theme from localStorage
       document.addEventListener("DOMContentLoaded", function () {
         const isDarkMode = localStorage.getItem("dark-mode") === "true";
@@ -808,6 +808,49 @@
         // Set theme switcher state
         document.body.classList.remove("theme-hidden");
         document.getElementById("theme-switch").checked = isDarkMode;
+
+        document
+          .getElementById("renameForm")
+          .addEventListener("submit", function (event) {
+            event.preventDefault(); // Prevent the default form submission
+
+            const oldFilePath = document.getElementById("oldFilePath").value;
+            const newName = document.getElementById("newName").value;
+
+            // Perform validation if needed
+            if (!oldFilePath || !newName) {
+              alert("Please provide both old file path and new name.");
+              return;
+            }
+
+            // Make the API request to rename the file/folder
+            fetch("/api/files/rename", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                oldPath: oldFilePath,
+                newName: newName,
+              }),
+            })
+              .then((response) => response.json())
+              .then((data) => {
+                if (data.success) {
+                  $("#renameModal").modal("hide");
+                  location.reload();
+                } else {
+                  alert(
+                    "Failed to rename file/folder: " +
+                      (data.error || "Unknown error")
+                  );
+                }
+              })
+              .catch((error) => {
+                console.error("Error:", error);
+                alert("An error occurred while renaming the file/folder.");
+              });
+          });
       });
 
       // Save theme to localStorage
@@ -863,6 +906,101 @@
               typeInput.value;
           }
         });
+    </script> -->
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        // Cache DOM elements
+        const body = document.body;
+        const themeSwitch = document.getElementById("theme-switch");
+        const renameForm = document.getElementById("renameForm");
+        const createNewForm = document.getElementById("createNewForm");
+        const renameModalLabel = document.getElementById("renameModalLabel");
+        const oldFilePathInput = document.getElementById("oldFilePath");
+        const newNameInput = document.getElementById("newName");
+
+        // Function to toggle dark mode
+        function toggleDarkMode(isDarkMode) {
+          body.classList.toggle("dark-mode", isDarkMode);
+          const elements = [
+            ...document.querySelectorAll(".breadcrumb"),
+            ...document.querySelectorAll(".table-container"),
+            ...document.querySelectorAll("th"),
+            ...document.querySelectorAll("td"),
+            ...document.querySelectorAll(".breadcrumb a"),
+            ...document.querySelectorAll(".nav"),
+          ];
+          elements.forEach((el) =>
+            el.classList.toggle("dark-mode", isDarkMode)
+          );
+        }
+
+        // Load theme from localStorage
+        const isDarkMode = localStorage.getItem("dark-mode") === "true";
+        toggleDarkMode(isDarkMode);
+        themeSwitch.checked = isDarkMode;
+        body.classList.remove("theme-hidden");
+
+        // Save theme to localStorage
+        themeSwitch.addEventListener("change", function () {
+          const isDarkMode = this.checked;
+          localStorage.setItem("dark-mode", isDarkMode);
+          toggleDarkMode(isDarkMode);
+        });
+
+        // Handle form submission for renaming
+        renameForm.addEventListener("submit", function (event) {
+          event.preventDefault();
+
+          const oldFilePath = oldFilePathInput.value;
+          const newName = newNameInput.value;
+
+          if (!oldFilePath || !newName) {
+            alert("Please provide both old file path and new name.");
+            return;
+          }
+
+          fetch("/api/files/rename", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ oldPath: oldFilePath, newName: newName }),
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              if (data.success) {
+                $("#renameModal").modal("hide");
+                location.reload();
+              } else {
+                alert(
+                  `Failed to rename file/folder: ${
+                    data.error || "Unknown error"
+                  }`
+                );
+              }
+            })
+            .catch((error) => {
+              console.error("Error:", error);
+              alert("An error occurred while renaming the file/folder.");
+            });
+        });
+
+        // Handle form submission for creating new items
+        createNewForm.addEventListener("submit", function (event) {
+          const nameInput = this.querySelector('input[name="name"]');
+          const typeInput = this.querySelector('input[name="type"]:checked');
+
+          if (nameInput && typeInput) {
+            this.action = `/create?${typeInput.value}=${encodeURIComponent(
+              nameInput.value
+            )}&type=${typeInput.value}`;
+          }
+        });
+
+        // Function to set file path and name in rename form
+        window.setFilePath = function (filePath, fileName) {
+          oldFilePathInput.value = filePath;
+          renameModalLabel.innerText = `Rename ${fileName}`;
+        };
+      });
     </script>
   </body>
 </html>

@@ -158,14 +158,16 @@
         <span class="toggle-slider"></span>
       </label>
       <div class="button-group">
-        <a href="/list?dir={{.PrevDir}}" class="btn btn-secondary">Back</a>
+        <a href="#" class="btn btn-secondary" id="back-button">Back</a>
         <button type="submit" form="edit-form" class="btn btn-primary">
           Save
         </button>
       </div>
       <form id="edit-form" method="post" action="/save">
-        <input type="hidden" name="file" value="{{.FileName}}" />
-        <input type="hidden" name="prevDir" value="{{.PrevDir}}" />
+        <!-- <input type="hidden" name="file" value="{{.FileName}}" />
+        <input type="hidden" name="prevDir" value="{{.PrevDir}}" /> -->
+        <input type="hidden" name="file" id="file-field" />
+        <input type="hidden" name="prevDir" id="prevDir-field" />
         <div class="form-group editor-container">
           <div id="line-numbers" class="line-numbers"></div>
           <textarea
@@ -174,13 +176,49 @@
             rows="20"
             class="form-control editor-content"
             aria-label="File content"
-          >
-{{.Content}}</textarea
-          >
+          ></textarea>
         </div>
       </form>
     </div>
     <script>
+      async function loadFileContent() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const fileName = urlParams.get("file");
+
+        if (!fileName) {
+          console.warn("No 'file' query parameter found in the URL.");
+          return;
+        }
+
+        try {
+          // Fetch data from the API based on the 'file' query parameter
+          const response = await fetch(
+            `/api/files/view?file=${encodeURIComponent(fileName)}`
+          );
+
+          // Check if the response is OK (status in the range 200-299)
+          if (!response.ok) {
+            throw new Error(
+              `Network response was not ok: ${response.statusText}`
+            );
+          }
+
+          const data = await response.json();
+
+          // Populate the form with fetched data
+          document.getElementById("file-field").value = data.fileName || "";
+          document.getElementById("prevDir-field").value = data.prevDir || "";
+          document.getElementById("content").textContent = data.content || "";
+
+          // Set href for the back button
+          document.getElementById(
+            "back-button"
+          ).href = `/list?dir=${encodeURIComponent(data.prevDir || "")}`;
+        } catch (error) {
+          console.error("Error fetching or processing data:", error);
+        }
+      }
+
       // Toggle dark mode
       function toggleDarkMode() {
         const body = document.body;
@@ -210,6 +248,8 @@
         if (darkMode) {
           toggleDarkMode(); // Call to apply dark mode
         }
+
+        loadFileContent();
 
         const textarea = document.getElementById("content");
         const lineNumbersEle = document.getElementById("line-numbers");
