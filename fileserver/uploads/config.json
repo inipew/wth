@@ -1,0 +1,434 @@
+{
+  "log": {
+    "level": "info",
+    "timestamp": true
+  },
+  "dns": {
+    "servers": [
+      {
+        "tag": "direct_dns",
+        "address": "112.215.103.248",
+        "detour": "direct"
+      },
+      {
+        "tag": "dns_umum",
+        "address": "1.1.1.1",
+        "detour": "Flow"
+      },
+      {
+        "tag": "dns_pew",
+        "address": "1.1.1.1",
+        "strategy": "ipv4_only",
+        "detour": "Pew"
+      },
+      {
+        "tag": "dns_game",
+        "address": "9.9.9.9",
+        "detour": "KoneksiDirect"
+      },
+      {
+        "tag": "dns_latency",
+        "address": "1.1.1.1",
+        "detour": "Latency"
+      },
+      {
+        "tag": "dns_block",
+        "address": "rcode://success"
+      }
+    ],
+    "rules": [
+      {
+        "type": "logical",
+        "mode": "and",
+        "rules": [
+          {
+            "rule_set": "youtube"
+          },
+          {
+            "network": "udp",
+            "port": 443
+          }
+        ],
+        "server": "dns_block"
+      },
+      {
+        "rule_set": "bug",
+        "server": "direct_dns"
+      },
+      {
+        "outbound": "Latency",
+        "server": "dns_latency"
+      },
+      {
+        "rule_set": [
+          "youtube",
+          "tiktok"
+        ],
+        "server": "dns_pew",
+        "rewrite_ttl": 10
+      },
+      {
+        "outbound": "Pew",
+        "server": "dns_pew"
+      },
+      {
+        "rule_set": [
+          "whatsapp_local",
+          "whatsapp"
+        ],
+        "server": "dns_umum",
+        "rewrite_ttl": 10
+      },
+      {
+        "rule_set": "commonports",
+        "invert": true,
+        "server": "dns_game"
+      },
+      {
+        "outbound": "KoneksiDirect",
+        "server": "dns_game"
+      },
+      {
+        "outbound": "Flow",
+        "server": "dns_umum"
+      },
+      {
+        "outbound": "any",
+        "server": "direct_dns"
+      }
+    ],
+    "final": "dns_umum",
+    "strategy": "prefer_ipv4",
+    "independent_cache": true
+  },
+  "inbounds": [
+    {
+      "type": "tun",
+      "tag": "tun-in",
+      "interface_name": "xtun",
+      "mtu": 9000,
+      "address": [
+        "172.19.0.1/30",
+        "fdfe:dcba:9876::1/126"
+      ],
+      "auto_route": true,
+      "strict_route": true,
+      "stack": "system",
+      "sniff": true
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "direct",
+      "tag": "direct"
+    },
+    {
+      "type": "block",
+      "tag": "block"
+    },
+    {
+      "type": "dns",
+      "tag": "dns-out"
+    },
+    {
+      "type": "selector",
+      "tag": "Flow",
+      "outbounds": [
+        "[Trojan] Atp",
+        "[VMess] IKD WS",
+        "[Trojan] Pew WS",
+        "[Trojan] ropik",
+        "Latency",
+        "Pew",
+        "direct"
+      ],
+      "default": "[Trojan] Atp",
+      "interrupt_exist_connections": true
+    },
+    {
+      "type": "selector",
+      "tag": "Pew",
+      "outbounds": [
+        "[Trojan] Pew WS",
+        "[Trojan] ropik",
+        "[Trojan] Atp",
+        "[VMess] IKD WS"
+      ],
+      "default": "[Trojan] Pew WS",
+      "interrupt_exist_connections": true
+    },
+    {
+      "type": "selector",
+      "tag": "KoneksiDirect",
+      "outbounds": [
+        "[Trojan] Atp",
+        "[VMess] IKD WS",
+        "[Trojan] Pew WS",
+        "[Trojan] ropik",
+        "direct"
+      ]
+    },
+    {
+      "type": "urltest",
+      "tag": "Latency",
+      "outbounds": [
+        "[Trojan] Atp",
+        "[VMess] IKD WS",
+        "[Trojan] Pew WS",
+        "[Trojan] ropik"
+      ],
+      "url": "https://cp.cloudflare.com/generate_204",
+      "interval": "1m0s",
+      "idle_timeout": "1m0s",
+      "interrupt_exist_connections": true
+    },
+    {
+      "type": "trojan",
+      "tag": "[Trojan] Pew WS",
+      "detour": "direct",
+      "domain_strategy": "ipv4_only",
+      "fallback_delay": "300ms",
+      "server": "104.17.3.81",
+      "server_port": 80,
+      "password": "149b3aae-b89e-4db9-a81d-b93e246058f7",
+      "tls": {
+        "server_name": "trouter2-azsc-uswe-3-a.trouter.teams.microsoft.com",
+        "insecure": true,
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        }
+      },
+      "multiplex": {
+        "protocol": "smux",
+        "max_streams": 32
+      },
+      "transport": {
+        "type": "httpupgrade",
+        "host": "xv.akupew.toys",
+        "path": "/pew/trojan"
+      }
+    },
+    {
+      "type": "trojan",
+      "tag": "[Trojan] ropik",
+      "detour": "direct",
+      "domain_strategy": "ipv4_only",
+      "server": "104.17.3.81",
+      "server_port": 80,
+      "password": "2ff8e18b-30f5-4122-9e29-5725ead69cd3",
+      "tls": {
+        "server_name": "teams.microsoft.com",
+        "insecure": true
+      },
+      "transport": {
+        "type": "httpupgrade",
+        "host": "pikachu.my.id",
+        "path": "/trojan-hup"
+      }
+    },
+    {
+      "type": "trojan",
+      "tag": "[Trojan] Atp",
+      "detour": "direct",
+      "domain_strategy": "prefer_ipv4",
+      "fallback_delay": "300ms",
+      "server": "104.17.3.81",
+      "server_port": 80,
+      "password": "c57dfcd867080cfd",
+      "tls": {
+        "server_name": "shopee.co.id",
+        "insecure": true,
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        }
+      },
+      "multiplex": {
+        "protocol": "h2mux",
+        "max_streams": 8
+      },
+      "transport": {
+        "type": "httpupgrade",
+        "host": "atp.sing-box.id",
+        "path": "/buy-trojan-upgrade-pm-telegram-at-synricha"
+      }
+    },
+    {
+      "type": "vmess",
+      "tag": "[VMess] IKD WS",
+      "detour": "direct",
+      "domain_strategy": "ipv4_only",
+      "fallback_delay": "300ms",
+      "server": "104.17.3.81",
+      "server_port": 80,
+      "uuid": "5ecd5da9-d970-43f9-91fe-65caa5b54980",
+      "security": "auto",
+      "global_padding": true,
+      "authenticated_length": true,
+      "tls": {
+        "server_name": "teams.microsoft.com",
+        "insecure": true,
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        }
+      },
+      "transport": {
+        "type": "httpupgrade",
+        "host": "alli.kuromiena.my.id",
+        "path": "/vmess-http"
+      }
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "type": "logical",
+        "mode": "or",
+        "rules": [
+          {
+            "port": 53
+          },
+          {
+            "protocol": "dns"
+          }
+        ],
+        "outbound": "dns-out"
+      },
+      {
+        "port": [
+          22,
+          123
+        ],
+        "outbound": "KoneksiDirect"
+      },
+      {
+        "type": "logical",
+        "mode": "and",
+        "rules": [
+          {
+            "rule_set": "youtube"
+          },
+          {
+            "network": "udp",
+            "port": 443
+          }
+        ],
+        "outbound": "block"
+      },
+      {
+        "rule_set": [
+          "youtube",
+          "tiktok"
+        ],
+        "outbound": "Pew"
+      },
+      {
+        "rule_set": [
+          "cloudflared_direct",
+          "cloudflared_proxy",
+          "hilook"
+        ],
+        "outbound": "Pew"
+      },
+      {
+        "rule_set": "commonports",
+        "outbound": "Flow"
+      },
+      {
+        "rule_set": "commonports",
+        "invert": true,
+        "outbound": "KoneksiDirect"
+      }
+    ],
+    "rule_set": [
+      {
+        "type": "local",
+        "tag": "bug",
+        "format": "binary",
+        "path": "bug.srs"
+      },
+      {
+        "type": "remote",
+        "tag": "youtube",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/malikshi/sing-box-geo@rule-set-geosite/geosite-youtube.srs",
+        "download_detour": "Flow",
+        "update_interval": "168h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "tiktok",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/malikshi/sing-box-geo@rule-set-geosite/geosite-tiktok.srs",
+        "download_detour": "Flow",
+        "update_interval": "168h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "whatsapp_local",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/inipew/any@main/wa_local.srs",
+        "download_detour": "Flow",
+        "update_interval": "24h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "whatsapp",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/malikshi/sing-box-geo@rule-set-geosite/geosite-whatsapp.srs",
+        "download_detour": "Flow",
+        "update_interval": "168h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "hilook",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/inipew/any@main/hilook.srs",
+        "download_detour": "Flow",
+        "update_interval": "24h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "cloudflared_proxy",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/inipew/any@main/cloudflared-proxy.srs",
+        "download_detour": "Flow",
+        "update_interval": "24h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "cloudflared_direct",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/inipew/any@main/cloudflared-direct.srs",
+        "download_detour": "Flow",
+        "update_interval": "24h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "commonports",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/inipew/any@main/commonports.srs",
+        "download_detour": "Flow",
+        "update_interval": "720h0m0s"
+      }
+    ],
+    "final": "Flow",
+    "auto_detect_interface": true,
+    "override_android_vpn": true
+  },
+  "experimental": {
+    "cache_file": {
+      "enabled": true,
+      "path": "caches.db",
+      "store_rdrc": true
+    },
+    "clash_api": {
+      "external_controller": "0.0.0.0:9090",
+      "external_ui": "yacd-meta",
+      "external_ui_download_url": "https://github.com/MetaCubeX/metacubexd/archive/refs/heads/gh-pages.zip",
+      "external_ui_download_detour": "Latency"
+    }
+  }
+}

@@ -1,96 +1,95 @@
 <template>
-  <div class="modal">
-    <div class="modal-content">
-      <span class="close" @click="$emit('close')">&times;</span>
-      <h2>Edit File: {{ fileName }}</h2>
-      <textarea v-model="content" rows="10" cols="50"></textarea>
-      <br />
-      <button @click="saveChanges">Save Changes</button>
-      <button @click="$emit('close')">Cancel</button>
+  <div class="edit-file-container">
+    <h1>Edit File: {{ fileName }}</h1>
+    <textarea v-model="fileContent" rows="15" cols="80"></textarea>
+    <div class="actions">
+      <button @click="saveFile">Save</button>
+      <button @click="cancelEdit">Cancel</button>
     </div>
+    <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
   </div>
 </template>
 
 <script>
+import { ref, onMounted } from "vue";
 import axios from "axios";
 
 export default {
-  props: {
-    fileName: String,
-    filePath: String,
-  },
-  data() {
-    return {
-      content: "",
-    };
-  },
-  mounted() {
-    this.fetchFileContent();
-  },
-  methods: {
-    async fetchFileContent() {
-      try {
-        const response = await axios.get(
-          `http://157.230.247.64:4567/api/files/view_file`,
-          {
-            params: { file: this.filePath },
-          }
-        );
-        this.content = response.data.content;
-      } catch (error) {
-        console.error("Error fetching file content:", error);
+  name: "EditFile",
+  setup() {
+    const fileName = ref("");
+    const fileContent = ref("");
+    const errorMessage = ref("");
+
+    onMounted(async () => {
+      const query = new URLSearchParams(window.location.search);
+      const filePath = query.get("file");
+
+      if (filePath) {
+        try {
+          const response = await axios.get(`/api/files/view`, {
+            params: { file: decodeURIComponent(filePath) },
+          });
+          fileName.value = response.data.fileName;
+          fileContent.value = response.data.content;
+        } catch (error) {
+          errorMessage.value = "Error fetching file content.";
+          console.error("Error fetching file content:", error);
+        }
       }
-    },
-    async saveChanges() {
+    });
+
+    const saveFile = async () => {
+      const query = new URLSearchParams(window.location.search);
+      const filePath = query.get("file");
+
       try {
-        await axios.post(`http://157.230.247.64:4567/api/files/save_edit`, {
-          file_path: this.filePath,
-          content: this.content,
+        await axios.post(`/api/files/save`, {
+          path: decodeURIComponent(filePath),
+          content: fileContent.value,
         });
-        this.$emit("close");
+        alert("File saved successfully!");
+        window.location.href = "/"; // Redirect to home or file list
       } catch (error) {
+        errorMessage.value = "Error saving file.";
         console.error("Error saving file:", error);
       }
-    },
+    };
+
+    const cancelEdit = () => {
+      window.location.href = "/";
+    };
+
+    return {
+      fileName,
+      fileContent,
+      saveFile,
+      cancelEdit,
+      errorMessage,
+    };
   },
 };
 </script>
 
 <style scoped>
-.modal {
-  display: block;
-  position: fixed;
-  z-index: 1000;
-  left: 0;
-  top: 0;
+.edit-file-container {
+  margin: 20px;
+}
+
+textarea {
   width: 100%;
-  height: 100%;
-  overflow: auto;
-  background-color: rgba(0, 0, 0, 0.7);
+  font-family: monospace;
 }
 
-.modal-content {
-  background-color: white;
-  margin: 15% auto;
-  padding: 20px;
-  border: 1px solid #888;
-  width: 80%;
-  max-width: 600px;
-  border-radius: 5px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+.actions {
+  margin-top: 10px;
 }
 
-.close {
-  color: #aaa;
-  float: right;
-  font-size: 28px;
-  font-weight: bold;
+.button {
+  margin-right: 10px;
 }
 
-.close:hover,
-.close:focus {
-  color: black;
-  text-decoration: none;
-  cursor: pointer;
+.error {
+  color: red;
 }
 </style>

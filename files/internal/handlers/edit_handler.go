@@ -2,23 +2,28 @@ package handlers
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+
+	"github.com/gorilla/mux"
 )
 
-// New handler for viewing the content of a file
-func ViewFileHandler(w http.ResponseWriter, r *http.Request) {
-	fileName := r.URL.Query().Get("file")
+type FileContentRequest struct {
+	FileName	string `json:"fileName"`
+	Content		string `json:"content"`
+}
+
+func ViewHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	fileName := "/"+vars["filepath"]
 	if fileName == "" {
-		http.Error(w, "File name is required", http.StatusBadRequest)
+		http.Error(w, "File path is required", http.StatusBadRequest)
+		log.Printf("filepath: %s", fileName)
 		return
 	}
-
-	// Decode URL encoded file path
 	decodedFileName, err := url.QueryUnescape(fileName)
 	if err != nil {
 		http.Error(w, "Invalid file path", http.StatusBadRequest)
@@ -30,46 +35,42 @@ func ViewFileHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid file path", http.StatusBadRequest)
 		return
 	}
-
-	file, err := os.ReadFile(filePath)
+	// Read the file content
+	content, err := os.ReadFile(filePath)
 	if err != nil {
-		log.Printf("Error reading file: %v", err)
-		http.Error(w, "Failed to read file", http.StatusInternalServerError)
+		http.Error(w, "Failed to read files", http.StatusInternalServerError)
 		return
 	}
 
-	data := struct {
-		Content string `json:"content"`
-	}{
-		Content: string(file),
+	// Respond with file content
+	response := FileContentRequest{
+		FileName: filePath,
+		Content:  string(content),
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(data)
+	respondWithJSON(w, http.StatusOK, response)
 }
 
-// SaveEditHandler untuk menyimpan perubahan yang telah diedit
-func SaveEditHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+func SaveHandler(w http.ResponseWriter, r *http.Request) {
+	var req FileContentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
 
-	filePath := r.FormValue("file_path")
-	content := r.FormValue("content")
-
-	if filePath == "" || content == "" {
-		http.Error(w, "File path and content are required", http.StatusBadRequest)
-		return
-	}
-
-	// Write the new content to the file
-	err := ioutil.WriteFile(filePath, []byte(content), 0644)
+	// Resolve absolute path
+	absPath, err := filepath.Abs(req.FileName)
 	if err != nil {
-		log.Printf("Error saving file: %v", err)
+		http.Error(w, "Invalid file path", http.StatusBadRequest)
+		return
+	}
+
+	// Write the content back to the file
+	err = os.WriteFile(absPath, []byte(req.Content), 0644)
+	if err != nil {
 		http.Error(w, "Failed to save file", http.StatusInternalServerError)
 		return
 	}
 
-	http.Redirect(w, r, "/api/files?path="+url.QueryEscape(filepath.Dir(filePath)), http.StatusSeeOther)
+	w.WriteHeader(http.StatusOK)
 }

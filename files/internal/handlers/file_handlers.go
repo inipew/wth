@@ -145,6 +145,7 @@ func respondWithJSON(w http.ResponseWriter, code int, payload any) {
 	w.WriteHeader(code)
 	if err := json.NewEncoder(w).Encode(payload); err != nil {
 		log.Printf("Error encoding response: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}
 }
 

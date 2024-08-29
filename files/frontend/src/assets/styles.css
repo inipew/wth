@@ -1,4 +1,6 @@
+/* Variabel warna */
 :root {
+  /* Warna terang */
   --light-background: #f4f7f6;
   --light-text: #343a40;
   --light-breadcrumb-bg: #ffffff;
@@ -15,6 +17,7 @@
   --light-modal-body-bg: #ffffff;
   --light-modal-body-text: #343a40;
 
+  /* Warna gelap */
   --dark-background: #222;
   --dark-text: #fff;
   --dark-breadcrumb-bg: #2c2c2c;
@@ -46,17 +49,20 @@
   --dark-nav-border: #333;
 }
 
-#app {
+/* Pengaturan umum */
+body {
   font-family: "Arial", sans-serif;
+  color: var(--light-text);
+  background-color: var(--light-background);
+  margin: 0;
+}
+
+#app {
   text-align: center;
-  color: #333;
   margin-top: 20px;
 }
 
-.navigation {
-  margin-bottom: 20px;
-}
-
+/* Tombol */
 .btn {
   margin: 0 5px;
   padding: 10px 20px;
@@ -65,71 +71,60 @@
   cursor: pointer;
   font-size: 16px;
   transition: background-color 0.3s, box-shadow 0.3s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
+/* Tombol utama */
 .btn-primary {
-  background-color: #007bff;
-  color: white;
+  background-color: var(--light-button-bg);
+  color: #fff;
 }
 
 .btn-primary:hover {
-  background-color: #0056b3;
+  background-color: var(--light-button-bg-hover);
 }
 
+/* Tombol sekunder */
 .btn-secondary {
   background-color: #6c757d;
-  color: white;
+  color: #fff;
 }
 
 .btn-secondary:hover {
   background-color: #5a6268;
 }
 
+/* Tombol aksi */
 .btn-action {
   background-color: #28a745;
-  color: white;
+  color: #fff;
+  min-width: 50px;
+  margin-bottom: 5px;
 }
 
 .btn-action:hover {
   background-color: #218838;
 }
 
+/* Tombol tutup */
 .btn-close {
   background-color: #dc3545;
-  color: white;
+  color: #fff;
 }
 
 .btn-close:hover {
   background-color: #c82333;
 }
 
-/* .file-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 20px;
-}
-
-th,
-td {
-  border: 1px solid #ddd;
-  padding: 12px;
-  text-align: left;
-}
-
-th {
-  background-color: #f8f9fa;
-}
-
-tr:hover {
-  background-color: #f1f1f1;
-} */
+/* Tabel */
 .file-table {
   background-color: var(--light-background);
   color: var(--light-text);
   border-radius: 0.375rem;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
   margin-bottom: 20px;
-  transition: background-color 0.3s, color 0.3s;
   overflow-x: auto;
   max-width: 100%;
   box-sizing: border-box;
@@ -143,56 +138,63 @@ tr:hover {
 table {
   width: 100%;
   border-collapse: collapse;
+  background-color: var(--light-background);
+  border-radius: 0.375rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  overflow-x: auto;
+  box-sizing: border-box;
 }
 
-th,
-td {
+thead th {
+  background-color: #f8f9fa;
+  color: var(--light-text);
+  padding: 15px;
+  text-align: left;
+}
+
+thead th.dark-mode {
+  background-color: var(--dark-table-header-bg);
+  color: var(--dark-table-header-text);
+}
+
+tbody th,
+tbody td {
   padding: 15px;
   text-align: left;
   vertical-align: middle;
   word-wrap: break-word;
 }
 
-th {
-  background-color: #f8f9fa;
-  border-bottom: 2px solid #5a6268;
+tbody td {
   transition: background-color 0.3s, color 0.3s;
 }
 
-.table thead th {
-  vertical-align: bottom;
-  border-bottom: 1px solid #5a6268;
-}
-
-th.dark-mode {
-  background-color: var(--dark-table-header-bg);
-  border-bottom: 2px solid #5a6268;
-  color: var(--dark-table-header-text);
-}
-
-td {
-  transition: background-color 0.3s, color 0.3s;
-}
-
-td.dark-mode {
+tbody td.dark-mode {
   background-color: var(--dark-table-cell-bg);
   color: var(--dark-table-cell-text);
 }
 
-tr:hover {
+tbody tr:hover {
   background-color: #f1f1f1;
 }
 
-tr.dark-mode:hover {
+tbody tr.dark-mode:hover {
   background-color: var(--dark-table-row-hover-bg);
 }
 
+/* Navigasi */
+.navigation {
+  margin-bottom: 20px;
+}
+
+/* Direktori */
 .directory {
   font-weight: bold;
   cursor: pointer;
-  color: #007bff;
+  color: var(--light-breadcrumb-link);
 }
 
+/* Arsip Files */
 .archive-files-container {
   margin-top: 20px;
   display: flex;
@@ -232,6 +234,7 @@ tr.dark-mode:hover {
   background-color: #f1f1f1;
 }
 
+/* Modal */
 .modal {
   display: block;
   position: fixed;
@@ -267,4 +270,60 @@ tr.dark-mode:hover {
   color: #000;
   text-decoration: none;
   cursor: pointer;
+}
+
+/* Responsif */
+@media (max-width: 768px) {
+  .archive-files-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .modal-content {
+    width: 90%;
+    margin: 20px;
+  }
+
+  .btn {
+    font-size: 14px;
+    padding: 8px 16px;
+  }
+  table {
+    font-size: 14px;
+  }
+
+  thead th,
+  tbody th,
+  tbody td {
+    padding: 10px;
+  }
+}
+
+@media (max-width: 576px) {
+  #app {
+    margin-top: 10px;
+  }
+
+  .archive-files th,
+  .archive-files td {
+    padding: 8px;
+  }
+  table {
+    font-size: 12px;
+  }
+
+  thead th,
+  tbody th,
+  tbody td {
+    padding: 8px;
+  }
+
+  .btn {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+
+  .btn-action {
+    min-width: 100%;
+  }
 }

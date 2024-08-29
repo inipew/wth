@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -25,7 +25,7 @@ func UploadFileHandler(w http.ResponseWriter, r *http.Request) {
 		defer file.Close()
 
 		// Read the file contents
-		fileBytes, err := ioutil.ReadAll(file)
+		fileBytes, err := io.ReadAll(file)
 		if err != nil {
 			http.Error(w, "Unable to read file", http.StatusInternalServerError)
 			return

@@ -3,7 +3,7 @@ package handlers
 import (
 	"archive/tar"
 	"archive/zip"
-	"bytes"
+	"bufio"
 	"compress/gzip"
 	"encoding/json"
 	"files/internal/utils"
@@ -13,7 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 // ArchiveHandler handles requests for viewing ZIP, TAR, and TAR.GZ files
@@ -133,7 +132,8 @@ func processTarGzFile(tarGzPath string) ([]FileInfo, error) {
 
 // readTar reads the contents of a TAR archive from an io.Reader
 func readTar(reader io.Reader) ([]FileInfo, error) {
-    tarReader := tar.NewReader(reader)
+    bufferedReader := bufio.NewReader(reader)
+    tarReader := tar.NewReader(bufferedReader)
 
     var archiveFileInfos []FileInfo
     for {
@@ -147,7 +147,7 @@ func readTar(reader io.Reader) ([]FileInfo, error) {
 
         archiveFileInfos = append(archiveFileInfos, FileInfo{
             Name:          header.Name,
-            Path:          header.Name, // Add path for further use
+            Path:          header.Name,
             IsDir:         header.Typeflag == tar.TypeDir,
             FileSize:      header.Size,
             FormattedSize: utils.ByteSize(header.Size).String(),
@@ -160,33 +160,42 @@ func readTar(reader io.Reader) ([]FileInfo, error) {
 }
 
 func getGzFileInfo(gzPath string) ([]FileInfo, error) {
-	file, err := os.Open(gzPath)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
+    file, err := os.Open(gzPath)
+    if err != nil {
+        return nil, err
+    }
+    defer file.Close()
 
-	gzReader, err := gzip.NewReader(file)
-	if err != nil {
-		return nil, err
-	}
-	defer gzReader.Close()
+    gzReader, err := gzip.NewReader(file)
+    if err != nil {
+        return nil, err
+    }
+    defer gzReader.Close()
 
-	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, gzReader); err != nil {
-		return nil, err
-	}
+    var uncompressedSize int64
+    buf := make([]byte, 64*1024)
+    for {
+        n, err := gzReader.Read(buf)
+        if n > 0 {
+            uncompressedSize += int64(n)
+        }
+        if err == io.EOF {
+            break
+        }
+        if err != nil {
+            return nil, err
+        }
+    }
 
-	uncompressedSize := int64(buf.Len())
-	archiveFileInfo := FileInfo{
-		Name:          filepath.Base(gzPath),
-		Path:          gzPath,
-		IsDir:         false,
-		FileSize:      uncompressedSize,
-		FormattedSize: utils.ByteSize(uncompressedSize).String(),
-		LastModified:  time.Now().Format("2006-01-02 15:04:05"), // Modify as needed
-		IsEditable:    utils.IsFileEditable(filepath.Base(gzPath)),
-	}
+    fileInfo := FileInfo{
+        Name:          gzReader.Name,
+        Path:          gzPath,
+        IsDir:         false,
+        FileSize:      uncompressedSize,
+        FormattedSize: utils.ByteSize(uncompressedSize).String(),
+        LastModified:  gzReader.ModTime.Format("2006-01-02 15:04:05"),
+        IsEditable:    utils.IsFileEditable(filepath.Base(gzPath)),
+    }
 
-	return []FileInfo{archiveFileInfo}, nil
+    return []FileInfo{fileInfo}, nil
 }
