@@ -182,11 +182,6 @@ tbody tr.dark-mode:hover {
   background-color: var(--dark-table-row-hover-bg);
 }
 
-/* Navigasi */
-.navigation {
-  margin-bottom: 20px;
-}
-
 /* Direktori */
 .directory {
   font-weight: bold;
@@ -194,96 +189,8 @@ tbody tr.dark-mode:hover {
   color: var(--light-breadcrumb-link);
 }
 
-/* Arsip Files */
-.archive-files-container {
-  margin-top: 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.archive-files-header {
-  display: flex;
-  justify-content: space-between;
-  width: 100%;
-  max-width: 600px;
-  margin-bottom: 10px;
-}
-
-.archive-files-header h2 {
-  margin: 0;
-}
-
-.archive-files {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.archive-files th,
-.archive-files td {
-  border: 1px solid #ddd;
-  padding: 12px;
-  text-align: left;
-}
-
-.archive-files th {
-  background-color: #f8f9fa;
-}
-
-.archive-files tr:hover {
-  background-color: #f1f1f1;
-}
-
-/* Modal */
-.modal {
-  display: block;
-  position: fixed;
-  z-index: 1000;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  overflow: auto;
-  background-color: rgba(0, 0, 0, 0.5);
-}
-
-.modal-content {
-  background-color: #fff;
-  margin: 10% auto;
-  padding: 20px;
-  border: 1px solid #ddd;
-  width: 80%;
-  max-width: 600px;
-  border-radius: 10px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
-.close {
-  color: #aaa;
-  float: right;
-  font-size: 28px;
-  font-weight: bold;
-}
-
-.close:hover,
-.close:focus {
-  color: #000;
-  text-decoration: none;
-  cursor: pointer;
-}
-
 /* Responsif */
 @media (max-width: 768px) {
-  .archive-files-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .modal-content {
-    width: 90%;
-    margin: 20px;
-  }
-
   .btn {
     font-size: 14px;
     padding: 8px 16px;
@@ -304,10 +211,6 @@ tbody tr.dark-mode:hover {
     margin-top: 10px;
   }
 
-  .archive-files th,
-  .archive-files td {
-    padding: 8px;
-  }
   table {
     font-size: 12px;
   }
@@ -324,6 +227,6 @@ tbody tr.dark-mode:hover {
   }
 
   .btn-action {
-    min-width: 100%;
+    min-width: 90%;
   }
 }

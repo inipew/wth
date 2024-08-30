@@ -35,7 +35,7 @@
     </div>
   </div>
 </template>
-<script>
+<!-- <script>
 import { ref, onMounted } from "vue";
 
 export default {
@@ -97,6 +97,74 @@ export default {
     onMounted(async () => {
       await loadCommands();
     });
+
+    return { commands, customCommand, output, executeCommand };
+  },
+};
+</script> -->
+<script>
+import { ref, onMounted } from "vue";
+
+export default {
+  setup() {
+    const commands = ref([]);
+    const customCommand = ref("");
+    const output = ref("");
+
+    const handleResponse = async (response) => {
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Kesalahan ${response.status}: ${errorText}`);
+      }
+      return response.json();
+    };
+
+    const loadCommands = async () => {
+      try {
+        const response = await fetch("/api/list");
+        const data = await handleResponse(response);
+        commands.value = Array.isArray(data.commands) ? data.commands : [];
+        if (!Array.isArray(data.commands)) {
+          output.value = "Kesalahan memuat perintah";
+        }
+      } catch (error) {
+        handleError("Kesalahan pengambilan:", error);
+      }
+    };
+
+    const executeCommand = async (cmd) => {
+      if (cmd === "custom" && !customCommand.value.trim()) {
+        output.value = "Perintah kustom tidak boleh kosong";
+        return;
+      }
+
+      const url = `/api/execute?value=${encodeURIComponent(
+        cmd === "custom" ? "custom" : cmd
+      )}`;
+      const body =
+        cmd === "custom"
+          ? `custom_command=${encodeURIComponent(customCommand.value)}`
+          : null;
+
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: body,
+        });
+        const result = await handleResponse(response);
+        output.value = result.output;
+      } catch (error) {
+        handleError("Kesalahan saat mengeksekusi perintah:", error);
+      }
+    };
+
+    const handleError = (message, error) => {
+      console.error(message, error);
+      output.value = message;
+    };
+
+    onMounted(loadCommands);
 
     return { commands, customCommand, output, executeCommand };
   },

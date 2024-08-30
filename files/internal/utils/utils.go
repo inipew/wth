@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"unicode"
 )
 
 // formatFileSize memformat ukuran file untuk tampilan
@@ -17,41 +18,40 @@ func FormatFileSize(info os.FileInfo, file os.DirEntry) string {
 	return size.String()
 }
 
-func IsFileEditable(filename string) bool {
-	editableExtensions := map[string]bool{
-		".txt":  true,
-		".md":   true,
-		".log":  true,
-		".html": true,
-		".css":  true,
-		".js":   true,
-		".json": true,
-		".xml":  true,
-		".yml":  true,
-		".yaml": true,
-		".php":  true,
-		".py":   true,
-		".rb":   true,
-		".java": true,
-		".cpp":  true,
-		".c":    true,
-		".cs":   true,
-		".go":   true,
-		".rs":   true,
-		".sh":   true,
-		".bat":  true,
-		".ini":  true,
-		".cfg":  true,
-		".conf": true,
-		".env":  true,
-		".pl":   true,
-		".ps1":  true,
-		".lua":  true,
-		".r":    true,
+func IsText(filename string) bool {
+	// Periksa apakah path adalah direktori
+	fileInfo, err := os.Stat(filename)
+	if err != nil {
+		return false
+	}
+	if fileInfo.IsDir() {
+		return false
 	}
 
-	ext := strings.ToLower(filepath.Ext(filename))
-	return editableExtensions[ext]
+	// Buka file
+	file, err := os.Open(filename)
+	if err != nil {
+		return false
+	}
+	defer file.Close()
+
+	// Tentukan ukuran buffer
+	const bufferSize = 1024
+	buf := make([]byte, bufferSize)
+
+	// Baca data dari file
+	n, err := file.Read(buf)
+	if err != nil && err.Error() != "EOF" {
+		return false
+	}
+
+	// Periksa apakah data tersebut adalah teks
+	for _, b := range buf[:n] {
+		if b > 127 && !unicode.IsPrint(rune(b)) && b != 0x0A && b != 0x0D && b != 0x09 {
+			return false
+		}
+	}
+	return true
 }
 
 const maxPathDepth = 10

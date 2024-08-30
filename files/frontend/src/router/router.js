@@ -1,6 +1,6 @@
 import { createWebHistory, createRouter } from "vue-router";
 import HomeView from "@/view/HomeView.vue";
-import Edit from "../components/Edit.vue";
+import Edit from "../view/EditView.vue";
 
 const routes = [
   {
@@ -12,7 +12,6 @@ const routes = [
     name: "EditItem",
     path: "/edit/:filepath",
     component: Edit,
-    props: true,
   },
 ];
 

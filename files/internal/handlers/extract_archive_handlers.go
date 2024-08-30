@@ -4,38 +4,42 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"compress/gzip"
+	"files/internal/models"
 	"fmt"
 	"io"
-	"net/http"
+	"log"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/gofiber/fiber/v2"
 )
 
-func UnzipHandler(w http.ResponseWriter, r *http.Request) {
-	filePath := r.URL.Query().Get("file")
+
+func UnzipHandler(c *fiber.Ctx) error {
+	filePath := c.Query("file")
 	if filePath == "" {
-		http.Error(w, "File parameter is required", http.StatusBadRequest)
-		return
+		// return c.Status(fiber.StatusBadRequest).SendString("File parameter is required")
+		return respondWithError(c,fiber.StatusBadRequest,"File parameter is required")
 	}
 
 	// Decode URL encoded file path and clean it
 	decodedFilePath, err := url.QueryUnescape(filePath)
 	if err != nil {
-		http.Error(w, "Invalid file path", http.StatusBadRequest)
-		return
+		// return c.Status(fiber.StatusBadRequest).SendString("Invalid file path")
+		return respondWithError(c,fiber.StatusBadRequest,"Invalid file path: "+err.Error())
 	}
 	filePathClean := filepath.Clean(decodedFilePath)
 
 	// Check if the file exists
 	if _, err := os.Stat(filePathClean); os.IsNotExist(err) {
-		http.Error(w, "File does not exist", http.StatusNotFound)
-		return
+		// return c.Status(fiber.StatusNotFound).SendString("File does not exist")
+		return respondWithError(c,fiber.StatusNotFound,"File does not exist")
 	} else if err != nil {
-		http.Error(w, "Failed to access file", http.StatusInternalServerError)
-		return
+		// return c.Status(fiber.StatusInternalServerError).SendString("Failed to access file")
+		return respondWithError(c,fiber.StatusInternalServerError,"Failed to access file: "+err.Error())
 	}
 
 	// Determine the file extension
@@ -56,24 +60,29 @@ func UnzipHandler(w http.ResponseWriter, r *http.Request) {
 			errMsg = "Failed to extract TAR.GZ file: "
 			err = untarGz(filePathClean)
 		} else {
-			http.Error(w, "Unsupported GZ file type", http.StatusBadRequest)
-			return
+			errMsg = "Unsupported GZ file type"
+			err = extractGzipFile(filePathClean)
 		}
 	default:
-		http.Error(w, "Unsupported file type", http.StatusBadRequest)
-		return
+		// return c.Status(fiber.StatusBadRequest).SendString("Unsupported file type")
+		// return c.JSON(fiber.Map{
+        //     "status":  "error",
+        //     "message": "Unsupported file type",
+        // })
+		return respondWithError(c, fiber.StatusBadRequest,"Unsupported file type")
 	}
 
 	if err != nil {
-		http.Error(w, errMsg+err.Error(), http.StatusInternalServerError)
-		return
+		// return c.Status(fiber.StatusInternalServerError).SendString(errMsg + err.Error())
+		return respondWithError(c, fiber.StatusBadRequest,errMsg + err.Error())
 	}
 
 	// Redirect back to the file manager with a success message
-	destDir := filepath.Dir(filePathClean)
-	http.Redirect(w, r, "/list?dir="+url.QueryEscape(destDir), http.StatusSeeOther)
+	log.Println("File extracted successfully")
+	return respondWithJSON(c,fiber.StatusOK,models.Response{
+		Message:"File extracted successfully",
+	})
 }
-
 
 // unzip extracts ZIP files
 func unzip(zipPath string) error {
@@ -126,14 +135,6 @@ func extractZipFile(f *zip.File, fPath string) error {
 	// Ensure the parent directory exists before creating the file
 	if err := os.MkdirAll(filepath.Dir(fPath), os.ModePerm); err != nil {
 		return err
-	}
-
-	// Check if the file already exists
-	if _, err := os.Stat(fPath); err == nil {
-		// Confirm overwriting
-		if err := confirmOverwrite(fPath); err != nil {
-			return err
-		}
 	}
 
 	// Create file with buffered I/O
@@ -223,14 +224,6 @@ func extractTarFile(tarReader *tar.Reader, header *tar.Header, fPath string) err
 		return err
 	}
 
-	// Check if the file already exists
-	if _, err := os.Stat(fPath); err == nil {
-		// Confirm overwriting
-		if err := confirmOverwrite(fPath); err != nil {
-			return err
-		}
-	}
-
 	// Create file with buffered I/O
 	dstFile, err := os.OpenFile(fPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.FileMode(header.Mode))
 	if err != nil {
@@ -318,9 +311,48 @@ func untarGz(tgzPath string) error {
 	return nil
 }
 
-// confirmOverwrite prompts the user to confirm overwriting an existing file
-func confirmOverwrite(filePath string) error {
-	// For this example, we'll just return an error.
-	// In a real application, you might return a message to the user.
-	return fmt.Errorf("File %s already exists. Overwrite? (y/n)", filePath)
+func extractGzipFile(gzipFilePath string) error {
+    // Buka file .gz
+    gzFile, err := os.Open(gzipFilePath)
+    if err != nil {
+        return fmt.Errorf("error opening gzip file: %w", err)
+    }
+    // Pastikan file ditutup secara manual
+    // defer gzFile.Close()
+
+    // Buat reader gzip
+    gzReader, err := gzip.NewReader(gzFile)
+    if err != nil {
+        gzFile.Close() // Pastikan file gzip ditutup jika error
+        return fmt.Errorf("error creating gzip reader: %w", err)
+    }
+    // Pastikan reader gzip ditutup secara manual
+    // defer gzReader.Close()
+
+    destFileName := filepath.Join(filepath.Dir(gzipFilePath), gzReader.Name) // Ganti dengan nama file default jika gzReader.Name kosong
+
+    // Buka file output
+    outFile, err := os.OpenFile(destFileName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+    if err != nil {
+        gzReader.Close() // Pastikan reader gzip ditutup jika error
+        gzFile.Close()   // Pastikan file gzip ditutup jika error
+        return fmt.Errorf("error creating output file: %w", err)
+    }
+    // Pastikan file output ditutup secara manual
+    // defer outFile.Close()
+
+    // Salin data dari gzip reader ke file output
+    if _, err = io.Copy(outFile, gzReader); err != nil {
+        outFile.Close() // Pastikan file output ditutup jika error
+        gzReader.Close() // Pastikan reader gzip ditutup jika error
+        gzFile.Close()   // Pastikan file gzip ditutup jika error
+        return fmt.Errorf("error copying data to output file: %w", err)
+    }
+
+    // Menutup file dan reader secara eksplisit
+    outFile.Close()
+    gzReader.Close()
+    gzFile.Close()
+
+    return nil
 }

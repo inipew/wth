@@ -244,12 +244,12 @@
         // Set the checkbox state based on localStorage
         toggle.checked = darkMode;
 
+        loadFileContent();
+
         // Apply dark mode classes if needed
         if (darkMode) {
           toggleDarkMode(); // Call to apply dark mode
         }
-
-        loadFileContent();
 
         const textarea = document.getElementById("content");
         const lineNumbersEle = document.getElementById("line-numbers");

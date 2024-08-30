@@ -1,72 +1,40 @@
 package handlers
 
 import (
-	"encoding/json"
 	"files/internal/models"
 	"files/internal/utils"
+	"fmt"
 	"log"
-	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
+
+	"github.com/bytedance/sonic"
+	"github.com/gofiber/fiber/v2"
 )
 
-// Response digunakan untuk format balasan API
-type Response struct {
-	Message string `json:"message,omitempty"`
-	Data    any    `json:"data,omitempty"`
-}
-
-// FileInfo menyimpan informasi file
-type FileInfo struct {
-	Name           string `json:"name"`
-	Path           string `json:"path"`
-	IsDir          bool   `json:"is_dir"`
-	FileSize       int64  `json:"file_size"`
-	FormattedSize  string `json:"formatted_size"`
-	LastModified   string `json:"last_modified"`
-	IsEditable     bool   `json:"is_editable"`
-	Permissions    string `json:"permissions,omitempty"`
-	FileType       string `json:"file_type,omitempty"`
-	Owner          string `json:"owner,omitempty"`
-	Group          string `json:"group,omitempty"`
-	CreationDate   string `json:"creation_date,omitempty"`
-}
-
-// DirectoryInfo menyimpan informasi direktori
-type DirectoryInfo struct {
-	CurrentPath   string     `json:"current_path"`
-	PreviousPath  string     `json:"previous_path,omitempty"`
-	Files         []FileInfo `json:"files"`
-}
-
-// FileHandler menangani permintaan untuk daftar file dalam direktori
-func FileHandler(w http.ResponseWriter, r *http.Request) {
-	currentPath, err := getDirectoryPath(r)
+// FileHandler handles file listing requests
+func FileHandler(c *fiber.Ctx) error {
+	currentPath, err := getDirectoryPath(c)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, err.Error())
-		return
+		return respondWithError(c, fiber.StatusBadRequest, err.Error())
 	}
 
 	if !utils.IsValidPath(currentPath) {
-		http.Error(w, "Invalid path", http.StatusBadRequest)
-		return
+		return respondWithError(c, fiber.StatusBadRequest, "Invalid path")
 	}
 
 	files, err := os.ReadDir(currentPath)
 	if err != nil {
 		log.Printf("Error reading directory: %v", err)
-		respondWithError(w, http.StatusInternalServerError, "Failed to read directory")
-		return
+		return respondWithError(c, fiber.StatusInternalServerError, "Failed to read directory: "+err.Error())
 	}
 
 	fileInfos, err := prepareFileInfo(files, currentPath)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Failed to get file info")
-		return
+		return respondWithError(c, fiber.StatusInternalServerError, "Failed to get file info: "+err.Error())
 	}
 
 	previousPath := filepath.Dir(currentPath)
@@ -74,16 +42,16 @@ func FileHandler(w http.ResponseWriter, r *http.Request) {
 		previousPath = ""
 	}
 
-	respondWithJSON(w, http.StatusOK, models.DirectoryInfo{
+	return respondWithJSON(c, fiber.StatusOK, models.DirectoryInfo{
 		CurrentPath:  currentPath,
 		PreviousPath: previousPath,
 		Files:        fileInfos,
 	})
 }
 
-// getDirectoryPath mendapatkan dan memvalidasi path direktori dari permintaan
-func getDirectoryPath(r *http.Request) (string, error) {
-	dir := r.URL.Query().Get("path")
+// getDirectoryPath extracts and validates the directory path from the request
+func getDirectoryPath(c *fiber.Ctx) (string, error) {
+	dir := c.Query("path")
 	if dir == "" {
 		return os.Getwd()
 	}
@@ -92,17 +60,11 @@ func getDirectoryPath(r *http.Request) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	dirClean := filepath.Clean(decodedDir)
-
-	absDirPath, err := filepath.Abs(dirClean)
-	if err != nil {
-		return "", err
-	}
-
-	return absDirPath, nil
+	cleanedDir := filepath.Clean(decodedDir)
+	return filepath.Abs(cleanedDir)
 }
 
-// prepareFileInfo menyiapkan slice FileInfo dari entri direktori yang diberikan
+// prepareFileInfo prepares FileInfo slice from directory entries
 func prepareFileInfo(files []os.DirEntry, dirPath string) ([]models.FileInfo, error) {
 	var fileInfos []models.FileInfo
 
@@ -112,54 +74,54 @@ func prepareFileInfo(files []os.DirEntry, dirPath string) ([]models.FileInfo, er
 			log.Printf("Error getting file info: %v", err)
 			continue
 		}
-
-		formattedSize := utils.FormatFileSize(info, file)
-		lastModified := info.ModTime().Format("2006-01-02 15:04:05")
-		permissions := getFilePermissions(info)
-		fileType := getFileType(info)
 		owner, group, _ := getFileOwnerGroup(filepath.Join(dirPath, file.Name()))
-		creationDate := getCreationDate(info)
-
 		fileInfos = append(fileInfos, models.FileInfo{
 			Name:          file.Name(),
 			Path:          filepath.ToSlash(filepath.Join(dirPath, file.Name())),
 			IsDir:         file.IsDir(),
-			FileSize:      info.Size(),
-			FormattedSize: formattedSize,
-			LastModified:  lastModified,
-			IsEditable:    utils.IsFileEditable(file.Name()),
-			Permissions:   permissions,
-			FileType:      fileType,
+			FileSize:      utils.FormatFileSize(info, file),
+			Size: 		   info.Size(),
+			LastModified:  info.ModTime().Format("2006-01-02 15:04:05"),
+			IsEditable:    utils.IsText(filepath.ToSlash(filepath.Join(dirPath, file.Name()))),
+			Permissions:   getFilePermissions(info),
+			FileType:      getFileType(info),
 			Owner:         owner,
 			Group:         group,
-			CreationDate:  creationDate,
+			CreationDate:  getCreationDate(info),
 		})
 	}
 	utils.SortFileInfos(fileInfos)
 	return fileInfos, nil
 }
 
-// respondWithJSON mengirimkan balasan dalam format JSON
-func respondWithJSON(w http.ResponseWriter, code int, payload any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	if err := json.NewEncoder(w).Encode(payload); err != nil {
-		log.Printf("Error encoding response: %v", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+// respondWithJSON creates a JSON response using Sonic
+func respondWithJSON(c *fiber.Ctx, status int, payload any) error {
+    // response := map[string]string{"message": message}
+    data, err := sonic.Marshal(payload)
+    if err != nil {
+        return c.Status(fiber.StatusInternalServerError).SendString("Error generating JSON response")
+    }
+    return c.Status(status).Send(data)
+}
+
+// respondWithError creates an error response using Sonic
+func respondWithError(c *fiber.Ctx, status int, message string) error {
+    response := models.Response{
+		Message: message,
 	}
+    data, err := sonic.Marshal(response)
+    if err != nil {
+        return c.Status(fiber.StatusInternalServerError).SendString("Error generating JSON response")
+    }
+    return c.Status(status).Send(data)
 }
 
-// respondWithError mengirimkan balasan kesalahan dalam format JSON
-func respondWithError(w http.ResponseWriter, code int, message string) {
-	respondWithJSON(w, code, Response{Message: message})
-}
-
-// getFilePermissions mengembalikan string yang mewakili hak akses file
+// getFilePermissions returns the file permissions in octal format
 func getFilePermissions(fi os.FileInfo) string {
-	return fi.Mode().String()
+	return fmt.Sprintf("%04o", fi.Mode().Perm())
 }
 
-// getFileType mengembalikan jenis file
+// getFileType returns the type of file
 func getFileType(fi os.FileInfo) string {
 	if fi.IsDir() {
 		return "directory"
@@ -167,24 +129,25 @@ func getFileType(fi os.FileInfo) string {
 	return "file"
 }
 
-// getFileOwnerGroup mendapatkan pemilik dan grup file untuk sistem Unix
+// getFileOwnerGroup returns the file owner and group for Unix systems
 func getFileOwnerGroup(path string) (string, string, error) {
-	userCmd := exec.Command("stat", "-c", "%U", path)
-	groupCmd := exec.Command("stat", "-c", "%G", path)
+    // Menggunakan satu perintah stat untuk mendapatkan pemilik dan grup
+    cmd := exec.Command("stat", "-c", "%U:%G", path)
+    output, err := cmd.Output()
+    if err != nil {
+        return "", "", err
+    }
 
-	userBytes, err := userCmd.Output()
-	if err != nil {
-		return "", "", err
-	}
-	groupBytes, err := groupCmd.Output()
-	if err != nil {
-		return "", "", err
-	}
+    // Memisahkan output berdasarkan delimiter ":"
+    parts := strings.SplitN(strings.TrimSpace(string(output)), ":", 2)
+    if len(parts) != 2 {
+        return "", "", fmt.Errorf("unexpected output format from stat command")
+    }
 
-	return strings.TrimSpace(string(userBytes)), strings.TrimSpace(string(groupBytes)), nil
+    return parts[0], parts[1], nil
 }
 
-// getCreationDate mendapatkan tanggal pembuatan file
+// getCreationDate returns the file creation date (or modification date if creation date is not available)
 func getCreationDate(fi os.FileInfo) string {
-	return fi.ModTime().Format(time.RFC3339) // Pseudonym creation date for Unix files
+	return fi.ModTime().Format("2006-01-02 15:04:05")
 }

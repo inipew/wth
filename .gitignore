@@ -1,0 +1,7 @@
+*adguard*
+*.gz
+*.zip
+*.tar.gz
+*.json
+tests
+test

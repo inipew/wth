@@ -1,39 +1,45 @@
 package handlers
 
 import (
-	"encoding/json"
+	"files/internal/models"
 	"files/internal/utils"
 	"log"
-	"net/http"
 	"os"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 // DeleteHandler menangani permintaan untuk menghapus file atau direktori
-func DeleteHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
+func DeleteHandler(c *fiber.Ctx) error {
+	if c.Method() != fiber.MethodDelete {
+		// return c.Status(fiber.StatusMethodNotAllowed).SendString("Method not allowed")
+		return respondWithError(c,fiber.StatusMethodNotAllowed,"Method not allowed")
 	}
 
 	var payload struct {
 		Path string `json:"path"`
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, "Invalid request payload", http.StatusBadRequest)
-		return
+	if err := c.BodyParser(&payload); err != nil {
+		log.Printf("Failed to decode request payload: %v", err)
+		return respondWithError(c, fiber.StatusBadRequest, "Failed to decode request payload: "+ err.Error())
 	}
 
 	if !utils.IsValidPath(payload.Path) {
-		http.Error(w, "Invalid path", http.StatusBadRequest)
-		return
+		log.Printf("Invalid path")
+		// return respondWithError(c, fiber.StatusBadRequest, "Invalid path")
+		return respondWithError(c,fiber.StatusBadRequest,"Invalid path")
 	}
 
 	if err := os.RemoveAll(payload.Path); err != nil {
 		log.Printf("Failed to delete file: %v", err)
-		http.Error(w, "Failed to delete file", http.StatusInternalServerError)
-		return
+		// return c.Status(fiber.StatusInternalServerError).SendString("Failed to delete file")
+		return respondWithError(c,fiber.StatusInternalServerError,"Failed to delete file: "+err.Error())
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	log.Println("File deleted successfully")
+	// return c.SendStatus(fiber.StatusNoContent)
+	return respondWithJSON(c,fiber.StatusOK,models.Response{
+		Message:"File deleted successfully",
+	})
 }
