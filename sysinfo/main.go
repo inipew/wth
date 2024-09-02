@@ -2,18 +2,21 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net"
-	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"syscall"
 	"time"
 
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/compress"
+	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
 	gop "github.com/shirou/gopsutil/net"
@@ -195,13 +198,13 @@ func getNumProcesses() (int, error) {
     return processes, nil
 }
 
-func writeError(w http.ResponseWriter, err error, statusCode int) {
-    http.Error(w, err.Error(), statusCode)
+func writeError(c *fiber.Ctx, err error, statusCode int) error {
     log.Printf("Error: %v", err)
+    return c.Status(statusCode).SendString(err.Error())
 }
 
-func getDeviceStats(w http.ResponseWriter, r *http.Request) {
-    ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+func getDeviceStats(c *fiber.Ctx) error {
+    ctx, cancel := context.WithTimeout(c.Context(), 10*time.Second)
     defer cancel()
 
     memStatsCh := make(chan MemStatsHumanReadable, 1)
@@ -215,7 +218,7 @@ func getDeviceStats(w http.ResponseWriter, r *http.Request) {
     go func() {
         memStats, err := getMemStats()
         if err != nil {
-            writeError(w, err, http.StatusInternalServerError)
+            writeError(c, err, fiber.StatusInternalServerError)
             return
         }
         memStatsCh <- memStats
@@ -224,7 +227,7 @@ func getDeviceStats(w http.ResponseWriter, r *http.Request) {
     go func() {
         diskStats, err := getDiskStats()
         if err != nil {
-            writeError(w, err, http.StatusInternalServerError)
+            writeError(c, err, fiber.StatusInternalServerError)
             return
         }
         diskStatsCh <- diskStats
@@ -233,7 +236,7 @@ func getDeviceStats(w http.ResponseWriter, r *http.Request) {
     go func() {
         networkStats, err := getNetworkStats()
         if err != nil {
-            writeError(w, err, http.StatusInternalServerError)
+            writeError(c, err, fiber.StatusInternalServerError)
             return
         }
         networkStatsCh <- networkStats
@@ -242,7 +245,7 @@ func getDeviceStats(w http.ResponseWriter, r *http.Request) {
     go func() {
         uptime, err := getUptime()
         if err != nil {
-            writeError(w, err, http.StatusInternalServerError)
+            writeError(c, err, fiber.StatusInternalServerError)
             return
         }
         uptimeCh <- uptime
@@ -251,7 +254,7 @@ func getDeviceStats(w http.ResponseWriter, r *http.Request) {
     go func() {
         lastBoot, err := getLastBoot()
         if err != nil {
-            writeError(w, err, http.StatusInternalServerError)
+            writeError(c, err, fiber.StatusInternalServerError)
             return
         }
         lastBootCh <- lastBoot
@@ -260,7 +263,7 @@ func getDeviceStats(w http.ResponseWriter, r *http.Request) {
     go func() {
         cpuStats, err := getCpuStats()
         if err != nil {
-            writeError(w, err, http.StatusInternalServerError)
+            writeError(c, err, fiber.StatusInternalServerError)
             return
         }
         cpuStatsCh <- cpuStats
@@ -269,7 +272,7 @@ func getDeviceStats(w http.ResponseWriter, r *http.Request) {
     go func() {
         numProcesses, err := getNumProcesses()
         if err != nil {
-            writeError(w, err, http.StatusInternalServerError)
+            writeError(c, err, fiber.StatusInternalServerError)
             return
         }
         numProcessesCh <- numProcesses
@@ -289,14 +292,45 @@ func getDeviceStats(w http.ResponseWriter, r *http.Request) {
             CpuStats:     <-cpuStatsCh,
             NumProcesses: <-numProcessesCh,
         }
-        w.Header().Set("Content-Type", "application/json")
-        json.NewEncoder(w).Encode(stats)
+        return c.JSON(stats)
     case <-ctx.Done():
-        writeError(w, ctx.Err(), http.StatusRequestTimeout)
+        return writeError(c, ctx.Err(), fiber.StatusRequestTimeout)
     }
 }
 
 func main() {
-    http.HandleFunc("/api/device-stats", getDeviceStats)
-    log.Fatal(http.ListenAndServe(":5678", nil))
+    app := fiber.New(fiber.Config{
+		DisablePreParseMultipartForm:  true,
+		StreamRequestBody:             true,
+	})
+
+	// Middleware
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "*",
+		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
+		AllowHeaders: "Content-Type",
+	}))
+	app.Use(logger.New())
+	app.Use(compress.New(compress.Config{
+		Level: compress.LevelBestSpeed, // 1
+	}))
+    app.Get("/api/device-stats", getDeviceStats)
+    // Serve static files
+	app.Static("/", "./frontend/dist", fiber.Static{
+		Compress: true,
+	})
+
+
+	// Fallback route for SPA
+	app.Get("/*", func(c *fiber.Ctx) error {
+		if _, err := os.Stat(filepath.Join("./frontend/dist", c.Path())); os.IsNotExist(err) {
+			return c.SendFile("./frontend/dist/index.html", true)
+		}
+		return c.SendFile(filepath.Join("./frontend/dist", c.Path()))
+	})
+    port := ":5678"
+    log.Printf("Server running on http://localhost%s\n", port)
+	if err := app.Listen(port); err != nil {
+		log.Fatal(err)
+	}
 }
