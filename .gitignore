@@ -2,6 +2,7 @@
 *.gz
 *.zip
 *.tar.gz
-*.json
+config*.json
+*pew*.json
 tests
 test
