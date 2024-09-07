@@ -3,11 +3,11 @@ package config
 import (
 	"bytes"
 	"fmt"
-	"runs/internal/logger"
 	"strings"
 	"sync"
 	"text/template"
 
+	"github.com/rs/zerolog/log"
 	"gopkg.in/ini.v1"
 )
 
@@ -129,14 +129,14 @@ func parseCommands(cfg *ini.File, config *Config) error {
 func ReplacePlaceholders(command string, paths map[string]string) string {
 	tmpl, err := template.New("command").Parse(command)
 	if err != nil {
-		logger.Logger.Error().Str("command", command).Err(err).Msg("Error parsing template")
+		log.Logger.Error().Str("command", command).Err(err).Msg("Error parsing template")
 		return command
 	}
 
 	var buf bytes.Buffer
 	err = tmpl.Execute(&buf, paths)
 	if err != nil {
-		logger.Logger.Error().Str("command", command).Err(err).Msg("Error executing template")
+		log.Logger.Error().Str("command", command).Err(err).Msg("Error executing template")
 		return command
 	}
 

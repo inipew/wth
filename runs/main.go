@@ -2,13 +2,17 @@ package main
 
 import (
 	"context"
+	"embed"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"runs/internal/config"
 	"runs/internal/handlers"
 	"runs/internal/logger"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,6 +20,8 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/compress"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/filesystem"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -30,11 +36,13 @@ var (
 	wg               sync.WaitGroup
 )
 
+//go:embed frontend/dist/*
+var embeddedFiles embed.FS
 func main() {
 	logger.InitLogger()
 
 	if err := config.LoadConfig(configFilePath); err != nil {
-		logger.Logger.Fatal().Err(err).Msg("Error loading config")
+		log.Logger.Fatal().Err(err).Msg("Error loading config")
 	}
 
 	app := fiber.New(fiber.Config{
@@ -54,7 +62,7 @@ func main() {
 	go func() {
 		defer wg.Done()
 		if err := setupFileWatcher(ctx); err != nil {
-			logger.Logger.Fatal().Err(err).Msg("Error setting up file watcher")
+			log.Logger.Fatal().Err(err).Msg("Error setting up file watcher")
 		}
 	}()
 
@@ -83,18 +91,47 @@ func setupMiddleware(app *fiber.App) {
 func setupRoutes(app *fiber.App) {
 	app.Get("/api/command/list", handlers.GetCommandList)
 	app.Post("/api/command/execute", handlers.CommandHandler)
-	app.Static("/", "./frontend/dist", fiber.Static{
-		Compress:      true,
-		CacheDuration: 3 * time.Hour,
-	})
+	// app.Static("/", "./frontend/dist", fiber.Static{
+	// 	Compress:      true,
+	// 	CacheDuration: 3 * time.Hour,
+	// })
 
-	app.Get("/*", func(c *fiber.Ctx) error {
-		filePath := filepath.Join("./frontend/dist", c.Path())
-		if _, err := os.Stat(filePath); os.IsNotExist(err) {
-			return c.SendFile("./frontend/dist/index.html", true)
-		}
-		return c.SendFile(filePath)
-	})
+	// app.Get("/*", func(c *fiber.Ctx) error {
+	// 	filePath := filepath.Join("./frontend/dist", c.Path())
+	// 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+	// 		return c.SendFile("./frontend/dist/index.html", true)
+	// 	}
+	// 	return c.SendFile(filePath)
+	// })
+	app.Use("/", filesystem.New(filesystem.Config{
+		Root:       http.FS(embeddedFiles),
+		PathPrefix: "frontend/dist",
+		Index:      "index.html",
+		MaxAge:     3600,
+	}))
+
+	// Fallback route for SPA
+	app.Get("*", func(c *fiber.Ctx) error {
+        requestedPath := strings.TrimPrefix(c.Path(), "/")
+
+        filePath := filepath.Join("frontend/dist", requestedPath)
+        
+        file, err := embeddedFiles.Open(filePath)
+        if err != nil {
+            if requestedPath != "" {
+                return c.SendFile("./frontend/dist/index.html", true)
+            }
+            return c.SendFile("./frontend/dist/index.html")
+        }
+        defer file.Close()
+
+        fileData, err := io.ReadAll(file)
+        if err != nil {
+            return fiber.NewError(fiber.StatusInternalServerError, "Error reading file")
+        }
+
+        return c.Send(fileData)
+    })
 }
 
 func startServer(app *fiber.App) {
@@ -103,9 +140,9 @@ func startServer(app *fiber.App) {
 		port = defaultPort
 	}
 	if err := app.Listen(port); err != nil {
-		logger.Logger.Fatal().Str("port", port).Err(err).Msg("Error starting server")
+		log.Logger.Fatal().Str("port", port).Err(err).Msg("Error starting server")
 	}
-	logger.Logger.Info().Str("port", port).Msg("Server is listening on port")
+	log.Logger.Info().Str("port", port).Msg("Server is listening on port")
 }
 
 func setupFileWatcher(ctx context.Context) error {
@@ -116,11 +153,11 @@ func setupFileWatcher(ctx context.Context) error {
 	defer watcher.Close()
 
 	if err := watcher.Add(configFilePath); err != nil {
-		logger.Logger.Error().Err(err).Msg("Error adding file to watcher")
+		log.Logger.Error().Err(err).Msg("Error adding file to watcher")
 		return fmt.Errorf("adding file to watcher: %w", err)
 	}
 
-	logger.Logger.Info().Msg("Watching for changes in config file...")
+	log.Logger.Info().Msg("Watching for changes in config file...")
 
 	done := make(chan struct{})
 	go func() {
@@ -129,21 +166,21 @@ func setupFileWatcher(ctx context.Context) error {
 		for {
 			select {
 			case <-ctx.Done():
-				logger.Logger.Info().Msg("File watcher stopped due to context cancellation")
+				log.Logger.Info().Msg("File watcher stopped due to context cancellation")
 				return
 			case event, ok := <-watcher.Events:
 				if !ok {
 					return
 				}
 				if event.Op&fsnotify.Write == fsnotify.Write {
-					logger.Logger.Info().Msg("Config file modified; scheduling reload...")
+					log.Logger.Info().Msg("Config file modified; scheduling reload...")
 					debounceConfigReload()
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
 					return
 				}
-				logger.Logger.Error().Err(err).Msg("Watcher error")
+				log.Logger.Error().Err(err).Msg("Watcher error")
 			}
 		}
 	}()
@@ -160,11 +197,11 @@ func debounceConfigReload() {
 		reloadTimer.Stop()
 	}
 	reloadTimer = time.AfterFunc(reloadDebounceDuration, func() {
-		logger.Logger.Info().Msg("Reloading config...")
+		log.Logger.Info().Msg("Reloading config...")
 		if err := config.LoadConfig(configFilePath); err != nil {
-			logger.Logger.Warn().Err(err).Msg("Error reloading config")
+			log.Logger.Warn().Err(err).Msg("Error reloading config")
 		} else {
-			logger.Logger.Info().Str("file", configFilePath).Msg("Config file reloaded")
+			log.Logger.Info().Str("file", configFilePath).Msg("Config file reloaded")
 		}
 	})
 }
@@ -174,7 +211,7 @@ func requestLoggerMiddleware() fiber.Handler {
 		start := time.Now()
 		err := c.Next()
 		duration := time.Since(start)
-		logger.Logger.Info().
+		log.Logger.Info().
 			Str("method", c.Method()).
 			Str("path", c.Path()).
 			Int("status", c.Response().StatusCode()).

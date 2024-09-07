@@ -3,17 +3,17 @@ package handlers
 import (
 	"files/internal/models"
 	"files/internal/utils"
-	"log"
 	"os"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/rs/zerolog/log"
 )
 
-// DeleteHandler menangani permintaan untuk menghapus file atau direktori
+// DeleteHandler handles requests to delete files or directories
 func DeleteHandler(c *fiber.Ctx) error {
 	if c.Method() != fiber.MethodDelete {
-		// return c.Status(fiber.StatusMethodNotAllowed).SendString("Method not allowed")
-		return respondWithError(c,fiber.StatusMethodNotAllowed,"Method not allowed")
+		log.Logger.Warn().Msg("Method not allowed for delete operation")
+		return respondWithError(c, fiber.StatusMethodNotAllowed, "Method not allowed")
 	}
 
 	var payload struct {
@@ -21,25 +21,22 @@ func DeleteHandler(c *fiber.Ctx) error {
 	}
 
 	if err := c.BodyParser(&payload); err != nil {
-		log.Printf("Failed to decode request payload: %v", err)
-		return respondWithError(c, fiber.StatusBadRequest, "Failed to decode request payload: "+ err.Error())
+		log.Logger.Error().Err(err).Msg("Failed to decode request payload")
+		return respondWithError(c, fiber.StatusBadRequest, "Failed to decode request payload: "+err.Error())
 	}
 
 	if !utils.IsValidPath(payload.Path) {
-		log.Printf("Invalid path")
-		// return respondWithError(c, fiber.StatusBadRequest, "Invalid path")
-		return respondWithError(c,fiber.StatusBadRequest,"Invalid path")
+		log.Logger.Warn().Str("path", payload.Path).Msg("Invalid path")
+		return respondWithError(c, fiber.StatusBadRequest, "Invalid path")
 	}
 
 	if err := os.RemoveAll(payload.Path); err != nil {
-		log.Printf("Failed to delete file: %v", err)
-		// return c.Status(fiber.StatusInternalServerError).SendString("Failed to delete file")
-		return respondWithError(c,fiber.StatusInternalServerError,"Failed to delete file: "+err.Error())
+		log.Logger.Error().Err(err).Str("path", payload.Path).Msg("Failed to delete file")
+		return respondWithError(c, fiber.StatusInternalServerError, "Failed to delete file: "+err.Error())
 	}
 
-	log.Println("File deleted successfully")
-	// return c.SendStatus(fiber.StatusNoContent)
-	return respondWithJSON(c,fiber.StatusOK,models.Response{
-		Message:"File deleted successfully",
+	log.Logger.Info().Str("path", payload.Path).Msg("File deleted successfully")
+	return respondWithJSON(c, fiber.StatusOK, models.Response{
+		Message: "File deleted successfully",
 	})
 }

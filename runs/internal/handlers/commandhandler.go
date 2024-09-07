@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 	cfg "runs/internal/config"
-	"runs/internal/logger"
 	"runs/internal/models"
 	"runs/internal/utils"
 	"time"
 
 	"github.com/bytedance/sonic"
 	"github.com/gofiber/fiber/v2"
+	"github.com/rs/zerolog/log"
 )
 
 const defaultTimeout = 10 * time.Second
@@ -32,7 +32,7 @@ func CommandHandler(c *fiber.Ctx) error {
 
 	output, err := utils.RunCommand(ctx, command.Command, defaultTimeout)
 	if err != nil {
-		logger.Logger.Error().Str("command", command.Command).Err(err).Msg("Failed to execute command")
+		log.Logger.Error().Str("command", command.Command).Err(err).Msg("Failed to execute command")
 		return handleError(c, fiber.StatusInternalServerError, fmt.Sprintf("Failed to execute command '%s': %v", command.Command, err))
 	}
 
@@ -58,7 +58,7 @@ func processCommand(c *fiber.Ctx, value string) (*cfg.Command, error) {
 
 // handleError logs and responds with an error message
 func handleError(c *fiber.Ctx, status int, message string) error {
-	logger.Logger.Error().Str("status", fmt.Sprintf("%d", status)).Msg(message)
+	log.Logger.Error().Str("status", fmt.Sprintf("%d", status)).Msg(message)
 	return respondWithError(c, status, message)
 }
 
@@ -66,7 +66,7 @@ func handleError(c *fiber.Ctx, status int, message string) error {
 func respondWithJSON(c *fiber.Ctx, status int, payload any) error {
 	data, err := sonic.Marshal(payload)
 	if err != nil {
-		logger.Logger.Error().Err(err).Msg("Error generating JSON response")
+		log.Logger.Error().Err(err).Msg("Error generating JSON response")
 		return respondWithError(c, fiber.StatusInternalServerError, "Error generating JSON response")
 	}
 	return c.Status(status).Send(data)
@@ -77,7 +77,7 @@ func respondWithError(c *fiber.Ctx, status int, message string) error {
 	response := models.Response{Message: message}
 	data, err := sonic.Marshal(response)
 	if err != nil {
-		logger.Logger.Error().Err(err).Msg("Error generating error response")
+		log.Logger.Error().Err(err).Msg("Error generating error response")
 		return c.Status(fiber.StatusInternalServerError).SendString("Error generating JSON response")
 	}
 	return c.Status(status).Send(data)

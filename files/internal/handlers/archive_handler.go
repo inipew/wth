@@ -9,29 +9,28 @@ import (
 	"files/internal/utils"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/rs/zerolog/log"
 )
 
 // ArchiveHandler handles requests for viewing ZIP, TAR, and TAR.GZ files
 func ArchiveHandler(c *fiber.Ctx) error {
 	archivePath := c.Query("path")
 	if archivePath == "" {
-		// return c.Status(fiber.StatusBadRequest).SendString("Missing 'path' query parameter") 
-		return respondWithJSON(c, fiber.StatusBadRequest,"Missing 'path' query parameter")
+		log.Logger.Warn().Msg("Missing 'path' query parameter in ArchiveHandler")
+		return respondWithJSON(c, fiber.StatusBadRequest, "Missing 'path' query parameter")
 	}
 
 	archivePath = filepath.Clean(archivePath)
 	fileInfos, err := processArchiveFile(archivePath)
 	if err != nil {
-		log.Printf("Error processing archive file %s: %v", archivePath, err)
-		// return c.Status(fiber.StatusInternalServerError).SendString("Failed to process archive file")
-		return respondWithError(c, fiber.StatusInternalServerError,fmt.Sprintf("Error processing archive file %s: %v", archivePath, err))
+		log.Logger.Error().Err(err).Str("path", archivePath).Msg("Failed to process archive file")
+		return respondWithError(c, fiber.StatusInternalServerError, fmt.Sprintf("Error processing archive file %s: %v", archivePath, err))
 	}
 
 	return c.Status(fiber.StatusOK).JSON(models.ArchiveInfo{
@@ -61,6 +60,7 @@ func processArchiveFile(archivePath string) ([]models.ArchiveFileInfo, error) {
 func processZipFile(zipPath string) ([]models.ArchiveFileInfo, error) {
 	zipFile, err := zip.OpenReader(zipPath)
 	if err != nil {
+		log.Logger.Error().Err(err).Str("path", zipPath).Msg("Failed to open ZIP file")
 		return nil, err
 	}
 	defer zipFile.Close()
@@ -82,6 +82,7 @@ func processZipFile(zipPath string) ([]models.ArchiveFileInfo, error) {
 func processTarFile(tarPath string) ([]models.ArchiveFileInfo, error) {
 	file, err := os.Open(tarPath)
 	if err != nil {
+		log.Logger.Error().Err(err).Str("path", tarPath).Msg("Failed to open TAR file")
 		return nil, err
 	}
 	defer file.Close()
@@ -94,6 +95,7 @@ func processTarFile(tarPath string) ([]models.ArchiveFileInfo, error) {
 			if err == io.EOF {
 				break
 			}
+			log.Logger.Error().Err(err).Str("path", tarPath).Msg("Error reading TAR file")
 			return nil, err
 		}
 		fileInfos = append(fileInfos, models.ArchiveFileInfo{
@@ -112,6 +114,7 @@ func processAndReadTarGzFile(tarGzPath string) ([]models.ArchiveFileInfo, error)
     // Open the .tar.gz file
     file, err := os.Open(tarGzPath)
     if err != nil {
+        log.Logger.Error().Err(err).Str("path", tarGzPath).Msg("Failed to open TAR.GZ file")
         return nil, err
     }
     defer file.Close()
@@ -119,6 +122,7 @@ func processAndReadTarGzFile(tarGzPath string) ([]models.ArchiveFileInfo, error)
     // Create a gzip reader
     gzReader, err := gzip.NewReader(file)
     if err != nil {
+        log.Logger.Error().Err(err).Str("path", tarGzPath).Msg("Failed to create gzip reader")
         return nil, err
     }
     defer gzReader.Close()
@@ -133,6 +137,7 @@ func processAndReadTarGzFile(tarGzPath string) ([]models.ArchiveFileInfo, error)
             if err == io.EOF {
                 break // End of archive
             }
+            log.Logger.Error().Err(err).Str("path", tarGzPath).Msg("Error reading TAR.GZ file")
             return nil, err
         }
 
@@ -151,12 +156,14 @@ func processAndReadTarGzFile(tarGzPath string) ([]models.ArchiveFileInfo, error)
 func getGzFileInfo(gzPath string) ([]models.ArchiveFileInfo, error) {
     file, err := os.Open(gzPath)
     if err != nil {
+        log.Logger.Error().Err(err).Str("path", gzPath).Msg("Failed to open GZ file")
         return nil, err
     }
     defer file.Close()
 
     gzReader, err := gzip.NewReader(file)
     if err != nil {
+        log.Logger.Error().Err(err).Str("path", gzPath).Msg("Failed to create gzip reader")
         return nil, err
     }
     defer gzReader.Close()
@@ -172,16 +179,17 @@ func getGzFileInfo(gzPath string) ([]models.ArchiveFileInfo, error) {
             break
         }
         if err != nil {
+            log.Logger.Error().Err(err).Str("path", gzPath).Msg("Error reading GZ file")
             return nil, err
         }
     }
 
     fileInfo := models.ArchiveFileInfo{
-        Name:          gzReader.Name,
-        Path:          gzReader.Name,
+        Name:          filepath.Base(gzPath),
+        Path:          gzPath,
         IsDir:         false,
         FileSize:      utils.ByteSize(uncompressedSize).String(),
-        LastModified:  gzReader.ModTime.Format("2006-01-02 15:04:05"),
+        LastModified:  "Unknown", // GZ files don't have modification dates
     }
 
     return []models.ArchiveFileInfo{fileInfo}, nil

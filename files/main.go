@@ -3,18 +3,19 @@ package main
 import (
 	"embed"
 	"io"
-	"log"
 	"net/http"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"files/internal/handlers"
+	"files/internal/logger"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/compress"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
-	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/rs/zerolog/log"
 	"gopkg.in/ini.v1"
 )
 
@@ -22,15 +23,18 @@ import (
 var embeddedFiles embed.FS
 
 func main() {
+	if err := logger.InitLogger(); err != nil {
+		log.Fatal().Err(err).Msg("Failed to initialize logger")
+	}
 	// Load configuration
 	cfg, err := ini.Load("config.ini")
 	if err != nil {
-		log.Fatalf("Failed to load config file: %v", err)
+		log.Logger.Fatal().Err(err).Msg("Failed to load config file")
 	}
 
 	port := cfg.Section("server").Key("port").String()
 	if port == "" {
-		log.Fatal("Port not defined in config.ini")
+		log.Logger.Fatal().Msg("Port not defined in config.ini")
 	}
 
 	app := fiber.New(fiber.Config{
@@ -40,22 +44,14 @@ func main() {
 	})
 
 	// Middleware
-	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*",
-		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
-		AllowHeaders: "Content-Type",
-	}))
-	app.Use(logger.New())
-	app.Use(compress.New(compress.Config{
-		Level: compress.LevelBestSpeed, // 1
-	}))
-
+	setupMiddleware(app)
 	// API routes
 	defineAPIRoutes(app)
 
 	// // Serve static files
 	// app.Static("/", "./frontend/dist", fiber.Static{
 	// 	Compress: true,
+	//  CacheDuration: 3 * time.Hour,
 	// })
 
 
@@ -98,10 +94,10 @@ func main() {
     })
 
 	// Start server
-	log.Printf("Server running on http://localhost%s\n", port)
 	if err := app.Listen(port); err != nil {
-		log.Fatal(err)
+		log.Logger.Fatal().Str("port", port).Err(err).Msg("Error starting server")
 	}
+	log.Logger.Info().Str("port", port).Msg("Server is listening on port")
 }
 
 func defineAPIRoutes(app *fiber.App) {
@@ -121,6 +117,36 @@ func defineAPIRoutes(app *fiber.App) {
 	files.Get("/make", handlers.MakeNewHandler)
 }
 
+func setupMiddleware(app *fiber.App) {
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "*",
+		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
+		AllowHeaders: "Content-Type",
+	}))
+
+	app.Use(compress.New(compress.Config{
+		Level: compress.LevelBestSpeed,
+	}))
+
+	app.Use(requestLoggerMiddleware())
+}
+
+func requestLoggerMiddleware() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		start := time.Now()
+		err := c.Next()
+		duration := time.Since(start)
+		log.Logger.Info().
+			Str("method", c.Method()).
+			Str("path", c.Path()).
+			Int("status", c.Response().StatusCode()).
+			Dur("duration", duration).
+			Msg("Request")
+		return err
+	}
+}
+
 func errorHandler(c *fiber.Ctx, err error) error {
+	log.Logger.Error().Err(err).Msg("Internal server error")
 	return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 }

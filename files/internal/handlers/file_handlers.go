@@ -4,7 +4,6 @@ import (
 	"files/internal/models"
 	"files/internal/utils"
 	"fmt"
-	"log"
 	"net/url"
 	"os"
 	"os/exec"
@@ -13,27 +12,32 @@ import (
 
 	"github.com/bytedance/sonic"
 	"github.com/gofiber/fiber/v2"
+	"github.com/rs/zerolog/log"
 )
 
 // FileHandler handles file listing requests
 func FileHandler(c *fiber.Ctx) error {
 	currentPath, err := getDirectoryPath(c)
 	if err != nil {
+		log.Logger.Error().Err(err).Msg("Failed to get directory path")
 		return respondWithError(c, fiber.StatusBadRequest, err.Error())
 	}
 
 	if !utils.IsValidPath(currentPath) {
-		return respondWithError(c, fiber.StatusBadRequest, "Invalid path")
+		errMsg := "Invalid path"
+		log.Warn().Str("path", currentPath).Msg(errMsg)
+		return respondWithError(c, fiber.StatusBadRequest, errMsg)
 	}
 
 	files, err := os.ReadDir(currentPath)
 	if err != nil {
-		log.Printf("Error reading directory: %v", err)
+		log.Logger.Error().Err(err).Str("path", currentPath).Msg("Error reading directory")
 		return respondWithError(c, fiber.StatusInternalServerError, "Failed to read directory: "+err.Error())
 	}
 
 	fileInfos, err := prepareFileInfo(files, currentPath)
 	if err != nil {
+		log.Logger.Error().Err(err).Str("path", currentPath).Msg("Failed to get file info")
 		return respondWithError(c, fiber.StatusInternalServerError, "Failed to get file info: "+err.Error())
 	}
 
@@ -71,7 +75,7 @@ func prepareFileInfo(files []os.DirEntry, dirPath string) ([]models.FileInfo, er
 	for _, file := range files {
 		info, err := file.Info()
 		if err != nil {
-			log.Printf("Error getting file info: %v", err)
+			log.Logger.Error().Err(err).Str("file", file.Name()).Msg("Error getting file info")
 			continue
 		}
 		owner, group, _ := getFileOwnerGroup(filepath.Join(dirPath, file.Name()))
@@ -96,24 +100,25 @@ func prepareFileInfo(files []os.DirEntry, dirPath string) ([]models.FileInfo, er
 
 // respondWithJSON creates a JSON response using Sonic
 func respondWithJSON(c *fiber.Ctx, status int, payload any) error {
-    // response := map[string]string{"message": message}
-    data, err := sonic.Marshal(payload)
-    if err != nil {
-        return c.Status(fiber.StatusInternalServerError).SendString("Error generating JSON response")
-    }
-    return c.Status(status).Send(data)
+	data, err := sonic.Marshal(payload)
+	if err != nil {
+		log.Logger.Error().Err(err).Msg("Error generating JSON response")
+		return c.Status(fiber.StatusInternalServerError).SendString("Error generating JSON response")
+	}
+	return c.Status(status).Send(data)
 }
 
 // respondWithError creates an error response using Sonic
 func respondWithError(c *fiber.Ctx, status int, message string) error {
-    response := models.Response{
+	response := models.Response{
 		Message: message,
 	}
-    data, err := sonic.Marshal(response)
-    if err != nil {
-        return c.Status(fiber.StatusInternalServerError).SendString("Error generating JSON response")
-    }
-    return c.Status(status).Send(data)
+	data, err := sonic.Marshal(response)
+	if err != nil {
+		log.Logger.Error().Err(err).Msg("Error generating JSON response")
+		return c.Status(fiber.StatusInternalServerError).SendString("Error generating JSON response")
+	}
+	return c.Status(status).Send(data)
 }
 
 // getFilePermissions returns the file permissions in octal format
@@ -131,20 +136,18 @@ func getFileType(fi os.FileInfo) string {
 
 // getFileOwnerGroup returns the file owner and group for Unix systems
 func getFileOwnerGroup(path string) (string, string, error) {
-    // Menggunakan satu perintah stat untuk mendapatkan pemilik dan grup
-    cmd := exec.Command("stat", "-c", "%U:%G", path)
-    output, err := cmd.Output()
-    if err != nil {
-        return "", "", err
-    }
+	cmd := exec.Command("stat", "-c", "%U:%G", path)
+	output, err := cmd.Output()
+	if err != nil {
+		return "", "", err
+	}
 
-    // Memisahkan output berdasarkan delimiter ":"
-    parts := strings.SplitN(strings.TrimSpace(string(output)), ":", 2)
-    if len(parts) != 2 {
-        return "", "", fmt.Errorf("unexpected output format from stat command")
-    }
+	parts := strings.SplitN(strings.TrimSpace(string(output)), ":", 2)
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("unexpected output format from stat command")
+	}
 
-    return parts[0], parts[1], nil
+	return parts[0], parts[1], nil
 }
 
 // getCreationDate returns the file creation date (or modification date if creation date is not available)

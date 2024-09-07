@@ -7,7 +7,6 @@ import (
 	"files/internal/models"
 	"fmt"
 	"io"
-	"log"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -15,31 +14,30 @@ import (
 	"sync"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/rs/zerolog/log"
 )
-
 
 func UnzipHandler(c *fiber.Ctx) error {
 	filePath := c.Query("file")
 	if filePath == "" {
-		// return c.Status(fiber.StatusBadRequest).SendString("File parameter is required")
-		return respondWithError(c,fiber.StatusBadRequest,"File parameter is required")
+		return respondWithError(c, fiber.StatusBadRequest, "File parameter is required")
 	}
 
 	// Decode URL encoded file path and clean it
 	decodedFilePath, err := url.QueryUnescape(filePath)
 	if err != nil {
-		// return c.Status(fiber.StatusBadRequest).SendString("Invalid file path")
-		return respondWithError(c,fiber.StatusBadRequest,"Invalid file path: "+err.Error())
+		log.Logger.Error().Err(err).Msg("Invalid file path")
+		return respondWithError(c, fiber.StatusBadRequest, "Invalid file path: "+err.Error())
 	}
 	filePathClean := filepath.Clean(decodedFilePath)
 
 	// Check if the file exists
 	if _, err := os.Stat(filePathClean); os.IsNotExist(err) {
-		// return c.Status(fiber.StatusNotFound).SendString("File does not exist")
-		return respondWithError(c,fiber.StatusNotFound,"File does not exist")
+		log.Logger.Error().Err(err).Str("path", filePathClean).Msg("File does not exist")
+		return respondWithError(c, fiber.StatusNotFound, "File does not exist")
 	} else if err != nil {
-		// return c.Status(fiber.StatusInternalServerError).SendString("Failed to access file")
-		return respondWithError(c,fiber.StatusInternalServerError,"Failed to access file: "+err.Error())
+		log.Logger.Error().Err(err).Str("path", filePathClean).Msg("Failed to access file")
+		return respondWithError(c, fiber.StatusInternalServerError, "Failed to access file: "+err.Error())
 	}
 
 	// Determine the file extension
@@ -64,23 +62,16 @@ func UnzipHandler(c *fiber.Ctx) error {
 			err = extractGzipFile(filePathClean)
 		}
 	default:
-		// return c.Status(fiber.StatusBadRequest).SendString("Unsupported file type")
-		// return c.JSON(fiber.Map{
-        //     "status":  "error",
-        //     "message": "Unsupported file type",
-        // })
-		return respondWithError(c, fiber.StatusBadRequest,"Unsupported file type")
+		return respondWithError(c, fiber.StatusBadRequest, "Unsupported file type")
 	}
 
 	if err != nil {
-		// return c.Status(fiber.StatusInternalServerError).SendString(errMsg + err.Error())
-		return respondWithError(c, fiber.StatusBadRequest,errMsg + err.Error())
+		log.Logger.Error().Err(err).Msg(errMsg)
+		return respondWithError(c, fiber.StatusBadRequest, errMsg+err.Error())
 	}
 
-	// Redirect back to the file manager with a success message
-	log.Println("File extracted successfully")
-	return respondWithJSON(c,fiber.StatusOK,models.Response{
-		Message:"File extracted successfully",
+	return respondWithJSON(c, fiber.StatusOK, models.Response{
+		Message: "File extracted successfully",
 	})
 }
 
@@ -88,6 +79,7 @@ func UnzipHandler(c *fiber.Ctx) error {
 func unzip(zipPath string) error {
 	zipFile, err := zip.OpenReader(zipPath)
 	if err != nil {
+		log.Logger.Error().Err(err).Str("path", zipPath).Msg("Failed to open ZIP file")
 		return err
 	}
 	defer zipFile.Close()
@@ -118,6 +110,7 @@ func unzip(zipPath string) error {
 	// Check for errors
 	for err := range errChan {
 		if err != nil {
+			log.Logger.Error().Err(err).Str("path", zipPath).Msg("Error extracting ZIP file")
 			return err
 		}
 	}
@@ -140,6 +133,7 @@ func extractZipFile(f *zip.File, fPath string) error {
 	// Create file with buffered I/O
 	dstFile, err := os.OpenFile(fPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
 	if err != nil {
+		log.Logger.Error().Err(err).Str("path", fPath).Msg("Failed to create file from ZIP entry")
 		return err
 	}
 	defer dstFile.Close()
@@ -150,11 +144,13 @@ func extractZipFile(f *zip.File, fPath string) error {
 	// Copy file content using buffered I/O
 	rc, err := f.Open()
 	if err != nil {
+		log.Logger.Error().Err(err).Str("path", fPath).Msg("Failed to open ZIP entry")
 		return err
 	}
 	defer rc.Close()
 
 	if _, err := io.Copy(bufWriter, rc); err != nil {
+		log.Logger.Error().Err(err).Str("path", fPath).Msg("Failed to copy data from ZIP entry")
 		return err
 	}
 
@@ -165,6 +161,7 @@ func extractZipFile(f *zip.File, fPath string) error {
 func untar(tarPath string) error {
 	file, err := os.Open(tarPath)
 	if err != nil {
+		log.Logger.Error().Err(err).Str("path", tarPath).Msg("Failed to open TAR file")
 		return err
 	}
 	defer file.Close()
@@ -185,6 +182,7 @@ func untar(tarPath string) error {
 			break // End of tar archive
 		}
 		if err != nil {
+			log.Logger.Error().Err(err).Str("path", tarPath).Msg("Failed to read TAR header")
 			return err
 		}
 
@@ -205,6 +203,7 @@ func untar(tarPath string) error {
 	// Check for errors
 	for err := range errChan {
 		if err != nil {
+			log.Logger.Error().Err(err).Str("path", tarPath).Msg("Error extracting TAR file")
 			return err
 		}
 	}
@@ -227,6 +226,7 @@ func extractTarFile(tarReader *tar.Reader, header *tar.Header, fPath string) err
 	// Create file with buffered I/O
 	dstFile, err := os.OpenFile(fPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.FileMode(header.Mode))
 	if err != nil {
+		log.Logger.Error().Err(err).Str("path", fPath).Msg("Failed to create file from TAR entry")
 		return err
 	}
 	defer dstFile.Close()
@@ -236,6 +236,7 @@ func extractTarFile(tarReader *tar.Reader, header *tar.Header, fPath string) err
 
 	// Copy file content using buffered I/O
 	if _, err := io.Copy(bufWriter, tarReader); err != nil {
+		log.Logger.Error().Err(err).Str("path", fPath).Msg("Failed to copy data from TAR entry")
 		return err
 	}
 
@@ -246,6 +247,7 @@ func extractTarFile(tarReader *tar.Reader, header *tar.Header, fPath string) err
 func untarGz(tgzPath string) error {
 	file, err := os.Open(tgzPath)
 	if err != nil {
+		log.Logger.Error().Err(err).Str("path", tgzPath).Msg("Failed to open TAR.GZ file")
 		return fmt.Errorf("failed to open TAR.GZ file: %w", err)
 	}
 	defer file.Close()
@@ -253,6 +255,7 @@ func untarGz(tgzPath string) error {
 	// Create a GZIP reader
 	gzipReader, err := gzip.NewReader(file)
 	if err != nil {
+		log.Logger.Error().Err(err).Str("path", tgzPath).Msg("Failed to create GZIP reader")
 		return fmt.Errorf("failed to create GZIP reader: %w", err)
 	}
 	defer gzipReader.Close()
@@ -265,6 +268,7 @@ func untarGz(tgzPath string) error {
 
 	// Create the destination directory if it doesn't exist
 	if err := os.MkdirAll(destDir, os.ModePerm); err != nil {
+		log.Logger.Error().Err(err).Str("directory", destDir).Msg("Failed to create destination directory")
 		return fmt.Errorf("failed to create destination directory %s: %w", destDir, err)
 	}
 
@@ -275,6 +279,7 @@ func untarGz(tgzPath string) error {
 			break // End of tar archive
 		}
 		if err != nil {
+			log.Logger.Error().Err(err).Str("path", tgzPath).Msg("Failed to read TAR header")
 			return fmt.Errorf("failed to read TAR header: %w", err)
 		}
 
@@ -283,6 +288,7 @@ func untarGz(tgzPath string) error {
 		// Create necessary directories
 		if header.Typeflag == tar.TypeDir {
 			if err := os.MkdirAll(fPath, os.ModePerm); err != nil {
+				log.Logger.Error().Err(err).Str("path", fPath).Msg("Failed to create directory")
 				return fmt.Errorf("failed to create directory %s: %w", fPath, err)
 			}
 			continue
@@ -290,18 +296,21 @@ func untarGz(tgzPath string) error {
 
 		// Ensure the parent directory exists before creating the file
 		if err := os.MkdirAll(filepath.Dir(fPath), os.ModePerm); err != nil {
+			log.Logger.Error().Err(err).Str("path", fPath).Msg("Failed to create parent directory")
 			return fmt.Errorf("failed to create parent directory for %s: %w", fPath, err)
 		}
 
 		// Create file with buffered I/O
 		dstFile, err := os.OpenFile(fPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.FileMode(header.Mode))
 		if err != nil {
+			log.Logger.Error().Err(err).Str("path", fPath).Msg("Failed to create file")
 			return fmt.Errorf("failed to create file %s: %w", fPath, err)
 		}
 
 		// Copy file content using buffered I/O
 		if _, err := io.Copy(dstFile, tarReader); err != nil {
 			dstFile.Close()
+			log.Logger.Error().Err(err).Str("path", fPath).Msg("Failed to copy data")
 			return fmt.Errorf("failed to copy file content for %s: %w", fPath, err)
 		}
 
@@ -315,6 +324,7 @@ func extractGzipFile(gzipFilePath string) error {
     // Buka file .gz
     gzFile, err := os.Open(gzipFilePath)
     if err != nil {
+        log.Logger.Error().Err(err).Str("path", gzipFilePath).Msg("Error opening gzip file")
         return fmt.Errorf("error opening gzip file: %w", err)
     }
     // Pastikan file ditutup secara manual
@@ -324,6 +334,7 @@ func extractGzipFile(gzipFilePath string) error {
     gzReader, err := gzip.NewReader(gzFile)
     if err != nil {
         gzFile.Close() // Pastikan file gzip ditutup jika error
+        log.Logger.Error().Err(err).Str("path", gzipFilePath).Msg("Error creating gzip reader")
         return fmt.Errorf("error creating gzip reader: %w", err)
     }
     // Pastikan reader gzip ditutup secara manual
@@ -336,6 +347,7 @@ func extractGzipFile(gzipFilePath string) error {
     if err != nil {
         gzReader.Close() // Pastikan reader gzip ditutup jika error
         gzFile.Close()   // Pastikan file gzip ditutup jika error
+        log.Logger.Error().Err(err).Str("path", destFileName).Msg("Error creating output file")
         return fmt.Errorf("error creating output file: %w", err)
     }
     // Pastikan file output ditutup secara manual
@@ -346,6 +358,7 @@ func extractGzipFile(gzipFilePath string) error {
         outFile.Close() // Pastikan file output ditutup jika error
         gzReader.Close() // Pastikan reader gzip ditutup jika error
         gzFile.Close()   // Pastikan file gzip ditutup jika error
+        log.Logger.Error().Err(err).Str("path", destFileName).Msg("Error copying data to output file")
         return fmt.Errorf("error copying data to output file: %w", err)
     }
 

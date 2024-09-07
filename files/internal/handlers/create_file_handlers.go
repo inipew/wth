@@ -3,20 +3,19 @@ package handlers
 import (
 	"files/internal/models"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/rs/zerolog/log"
 )
 
 // MakeNewHandler handles requests to create a new file or directory based on query parameters.
 func MakeNewHandler(c *fiber.Ctx) error {
 	if c.Method() != fiber.MethodGet {
-		// return c.Status(fiber.StatusMethodNotAllowed).SendString("Method not allowed")
+		log.Logger.Warn().Msg("Invalid request method for MakeNewHandler")
 		return respondWithError(c, fiber.StatusMethodNotAllowed, "Invalid request method")
-
 	}
 
 	// Extract parameters from query
@@ -26,38 +25,32 @@ func MakeNewHandler(c *fiber.Ctx) error {
 
 	// Validate parameters
 	if err := validateParams(creationType, name); err != nil {
-		// return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+		log.Logger.Error().Err(err).Msg("Parameter validation failed")
 		return respondWithError(c, fiber.StatusBadRequest, err.Error())
-
 	}
 
 	// Resolve and validate the current path
 	currentPath = resolvePath(currentPath)
 	baseDir, err := os.Getwd()
 	if err != nil {
-		// return c.Status(fiber.StatusInternalServerError).SendString("Failed to get the base directory")
+		log.Logger.Error().Err(err).Msg("Failed to get the base directory")
 		return respondWithError(c, fiber.StatusInternalServerError, err.Error())
-
 	}
 
 	if !isValidPath(baseDir, currentPath) {
-		// return c.Status(fiber.StatusBadRequest).SendString("Invalid current path")
+		log.Logger.Warn().Str("currentPath", currentPath).Msg("Invalid current path")
 		return respondWithError(c, fiber.StatusBadRequest, "Invalid current path")
-
 	}
 
 	// Create file or directory
 	if err := createEntity(creationType, currentPath, name); err != nil {
-		log.Printf("Error creating %s: %v", creationType, err)
-		// return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+		log.Logger.Error().Err(err).Str("type", creationType).Str("path", currentPath).Msg("Error creating entity")
 		return respondWithError(c, fiber.StatusInternalServerError, err.Error())
-
 	}
 
-	log.Println("File Created successfully")
-	// return c.SendStatus(fiber.StatusNoContent)
+	log.Logger.Info().Str("type", creationType).Str("path", filepath.Join(currentPath, name)).Msg("File or directory created successfully")
 	return respondWithJSON(c, fiber.StatusOK, models.Response{
-		Message: fmt.Sprintf("%s created successfully",creationType),
+		Message: fmt.Sprintf("%s created successfully", creationType),
 	})
 }
 
@@ -84,10 +77,12 @@ func resolvePath(path string) string {
 func isValidPath(baseDir, newPath string) bool {
 	absBaseDir, err := filepath.Abs(baseDir)
 	if err != nil {
+		log.Logger.Error().Err(err).Str("baseDir", baseDir).Str("newPath", newPath).Msg("Failed to get absolute path")
 		return false
 	}
 	absNewPath, err := filepath.Abs(newPath)
 	if err != nil {
+		log.Logger.Error().Err(err).Str("baseDir", baseDir).Str("newPath", newPath).Msg("Failed to get absolute path")
 		return false
 	}
 	return strings.HasPrefix(absNewPath, absBaseDir)

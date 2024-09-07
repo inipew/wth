@@ -5,6 +5,7 @@ go 1.23.0
 require (
 	github.com/bytedance/sonic v1.12.2
 	github.com/gofiber/fiber/v2 v2.52.5
+	github.com/rs/zerolog v1.33.0
 	gopkg.in/ini.v1 v1.67.0
 )
 
