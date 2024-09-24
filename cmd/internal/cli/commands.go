@@ -1,4 +1,4 @@
-package internal
+package cli
 
 import (
 	"flag"
@@ -6,30 +6,38 @@ import (
 	"os"
 )
 
+// FlagParser interface to abstract flag parsing behavior.
 type FlagParser interface {
 	Parse(args []string) error
 	Args() []string
 	VisitAll(fn func(*flag.Flag))
 }
 
+// Command represents a CLI command with associated flags and a runner function.
 type Command struct {
 	Name        string
 	Description string
 	Flags       FlagParser
-	Run         func(args []string)
+	Run         func(cmd *Command, args []string)
 	Help        string
 	Aliases     []string
 }
 
+// CLI represents the command-line interface with registered commands and version information.
 type CLI struct {
 	commands map[string]*Command
 	version  string
 }
 
+// NewCLI initializes a new CLI instance with a specified version.
 func NewCLI(version string) *CLI {
-	return &CLI{commands: make(map[string]*Command), version: version}
+	return &CLI{
+		commands: make(map[string]*Command),
+		version:  version,
+	}
 }
 
+// AddCommand registers a command with the CLI, including any aliases.
 func (cli *CLI) AddCommand(cmd *Command) {
 	cli.commands[cmd.Name] = cmd
 	for _, alias := range cmd.Aliases {
@@ -37,9 +45,10 @@ func (cli *CLI) AddCommand(cmd *Command) {
 	}
 }
 
+// Execute processes the command-line arguments and executes the corresponding command.
 func (cli *CLI) Execute() {
 	if len(os.Args) < 2 {
-		fmt.Println("Please specify a command.")
+		cli.displayError("Please specify a command.")
 		cli.PrintHelp()
 		return
 	}
@@ -48,39 +57,41 @@ func (cli *CLI) Execute() {
 	command, exists := cli.commands[commandName]
 
 	if !exists {
-		fmt.Printf("Unknown command: %s\n", commandName)
+		cli.displayError(fmt.Sprintf("Unknown command: %s", commandName))
 		cli.PrintHelp()
 		return
 	}
 
-	// Create a new flag set for the command
-	flagSet := flag.NewFlagSet(commandName, flag.ExitOnError)
+	if err := cli.runCommand(command, os.Args[2:]); err != nil {
+		cli.displayError(err.Error())
+		cli.PrintCommandHelp(commandName)
+	}
+}
+
+// runCommand sets up and executes the given command with its flags.
+func (cli *CLI) runCommand(command *Command, args []string) error {
+	flagSet := flag.NewFlagSet(command.Name, flag.ContinueOnError)
 	if command.Flags != nil {
-		// Copy flags from command.Flags to flagSet
 		command.Flags.VisitAll(func(f *flag.Flag) {
 			flagSet.Var(f.Value, f.Name, f.Usage)
 		})
 	}
 
-	// Parse flags
-	if len(os.Args) > 2 && os.Args[2] == "--help" {
-		cli.PrintCommandHelp(commandName)
-		return
+	// Check for help request
+	if len(args) > 0 && args[0] == "--help" {
+		cli.PrintCommandHelp(command.Name)
+		return nil
 	}
 
-	args := os.Args[2:]
-	err := flagSet.Parse(args)
-	if err != nil {
-		fmt.Printf("Error parsing flags: %s\n", err)
-		cli.PrintCommandHelp(commandName)
-		return
+	if err := flagSet.Parse(args); err != nil {
+		return fmt.Errorf("error parsing flags: %w", err)
 	}
 
-	args = flagSet.Args()
-	command.Run(args)
+	command.Run(command, flagSet.Args())
+	return nil
 }
 
-
+// PrintHelp displays help information for the CLI.
 func (cli *CLI) PrintHelp() {
 	fmt.Printf("CLI Version: %s\n", cli.version)
 	fmt.Println("Available commands:")
@@ -90,10 +101,11 @@ func (cli *CLI) PrintHelp() {
 	fmt.Println("\nUse '<command> --help' for more information about a command.")
 }
 
+// PrintCommandHelp displays help information for a specific command.
 func (cli *CLI) PrintCommandHelp(commandName string) {
 	command, exists := cli.commands[commandName]
 	if !exists {
-		fmt.Printf("Unknown command: %s\n", commandName)
+		cli.displayError(fmt.Sprintf("Unknown command: %s", commandName))
 		return
 	}
 
@@ -113,23 +125,27 @@ func (cli *CLI) PrintCommandHelp(commandName string) {
 	}
 }
 
-
-func addHelpFlag(flagSet *flag.FlagSet) {
-	flagSet.Bool("help", false, "Display help for this command")
+// displayError prints an error message in a standardized format.
+func (cli *CLI) displayError(message string) {
+	fmt.Fprintln(os.Stderr, "Error:", message)
 }
 
+// FlagSetParser wraps the standard flag.FlagSet to implement the FlagParser interface.
 type FlagSetParser struct {
 	*flag.FlagSet
 }
 
+// Parse processes the provided arguments using the flag set.
 func (f *FlagSetParser) Parse(args []string) error {
 	return f.FlagSet.Parse(args)
 }
 
+// Args returns the non-flag arguments after parsing.
 func (f *FlagSetParser) Args() []string {
 	return f.FlagSet.Args()
 }
 
+// VisitAll iterates over all flags in the flag set.
 func (f *FlagSetParser) VisitAll(fn func(*flag.Flag)) {
 	f.FlagSet.VisitAll(fn)
 }
