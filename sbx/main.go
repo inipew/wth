@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sbx/internal/archive"
 	"sbx/internal/caddyfile"
+	"sbx/internal/cmd"
 	"sbx/internal/config"
 	"sbx/internal/download"
 	"sbx/internal/github"
@@ -27,89 +28,111 @@ func main() {
 		log.Fatal().Err(err).Msg("Failed to initialize logger")
 	}
 
-	// Parse command line flags
-	mode := flag.String("mode", "", "Operation mode: sing, caddyfile, or service")
-	domain := flag.String("domain", "", "Domain for Caddyfile generation")
-	preRelease := flag.Bool("latest", false, "Download the latest prerelease version")
-	flag.Parse()
+	myCLI := cmd.NewCLI("1.0.0")
 
-	switch *mode {
-	case "sing":
-		if err := performDownloadSing(*preRelease); err != nil {
-			log.Fatal().Err(err).Msg("Error in download operation")
-		}
-	case "caddy":
-		if err := performDownloadCaddy(*preRelease); err != nil {
-			log.Fatal().Err(err).Msg("Error in download operation")
-		}
-	case "caddyfile":
-		if *domain == "" {
-			log.Fatal().Msg("Domain is required for Caddyfile generation")
-		}
-		if err := generateCaddyfile(*domain); err != nil {
-			log.Fatal().Err(err).Msg("Error in Caddyfile generation")
-		}
-	case "service":
-		if err := createServices(); err != nil {
-			log.Fatal().Err(err).Msg("Error in service creation")
-		}
-	default:
-		log.Fatal().Msg("Invalid or missing mode. Use -mode=sing, -mode=caddy, -mode=caddyfile, or -mode=service")
+	// Register commands
+	myCLI.AddCommand(createSingCommand())
+	myCLI.AddCommand(createCaddyCommand())
+	myCLI.AddCommand(createCaddyfileCommand())
+	myCLI.AddCommand(createServiceCommand())
+
+	// Execute the CLI
+	myCLI.Execute()
+}
+
+// createSingCommand sets up the 'sing' command
+func createSingCommand() *cmd.Command {
+	latestFlag := new(bool)
+	flags := setupCommandFlags("sing", latestFlag)
+
+	return &cmd.Command{
+		Name:        "sing",
+		Description: "Download the latest release of sing-box.",
+		Flags:       flags,
+		Run: func(c *cmd.Command, args []string) {
+			if err := performDownloadSing(*latestFlag); err != nil {
+				log.Fatal().Err(err).Msg("Error in download operation")
+			}
+		},
+		Help: "The `sing` command downloads the latest release of sing-box. Use `--latest` for the prerelease version.",
 	}
 }
 
+// createCaddyCommand sets up the 'caddy' command
+func createCaddyCommand() *cmd.Command {
+	latestFlag := new(bool)
+	flags := setupCommandFlags("caddy", latestFlag)
+
+	return &cmd.Command{
+		Name:        "caddy",
+		Description: "Download the latest release of Caddy.",
+		Flags:       flags,
+		Run: func(c *cmd.Command, args []string) {
+			if err := performDownloadCaddy(*latestFlag); err != nil {
+				log.Fatal().Err(err).Msg("Error in download operation")
+			}
+		},
+		Help: "The `caddy` command downloads the latest release of Caddy. Use `--latest` for the prerelease version.",
+	}
+}
+
+// createCaddyfileCommand sets up the 'caddyfile' command
+func createCaddyfileCommand() *cmd.Command {
+	return &cmd.Command{
+		Name:        "caddyfile",
+		Description: "Generate a Caddyfile.",
+		Flags:       &cmd.FlagSetParser{FlagSet: flag.NewFlagSet("caddyfile", flag.ContinueOnError)},
+		Run: func(c *cmd.Command, args []string) {
+			if len(args) < 1 {
+				log.Fatal().Msg("Domain is required for Caddyfile generation")
+			}
+			if err := generateCaddyfile(args[0]); err != nil {
+				log.Fatal().Err(err).Msg("Error in Caddyfile generation")
+			}
+		},
+		Help: "The `caddyfile` command generates a Caddyfile for the specified domain.",
+	}
+}
+
+// createServiceCommand sets up the 'service' command
+func createServiceCommand() *cmd.Command {
+	return &cmd.Command{
+		Name:        "service",
+		Description: "Create systemd services.",
+		Run: func(c *cmd.Command, args []string) {
+			if err := createServices(); err != nil {
+				log.Fatal().Err(err).Msg("Error in service creation")
+			}
+		},
+		Help: "The `service` command generates systemd services for Caddy and sing-box.",
+	}
+}
+
+// setupCommandFlags creates common flags for commands
+func setupCommandFlags(commandName string, latestFlag *bool) *cmd.FlagSetParser {
+	flags := &cmd.FlagSetParser{FlagSet: flag.NewFlagSet(commandName, flag.ContinueOnError)}
+	flags.BoolVar(latestFlag, "latest", false, "Download the latest prerelease version")
+	flags.BoolVar(latestFlag, "l", false, "Download the latest prerelease version (shorthand for --latest")
+	return flags
+}
+
+// performDownloadCaddy handles the download of Caddy
 func performDownloadCaddy(preRelease bool) error {
-	client := github.NewClient(githubTimeout)
-
-	ctx, cancel := context.WithTimeout(context.Background(), apiTimeout)
-	defer cancel()
-
-	repoOwner := "caddyserver"
-	repoName := "caddy"
-	filePath := filepath.Join(config.TmpDir, repoName+".tar.gz")
-
-	version, err := client.GetLatestRelease(ctx, repoOwner, repoName, preRelease)
-	if err != nil {
-		return err
-	}
-
-	downloadURL, err := github.BuildDownloadURL(repoOwner, repoName, version)
-	if err != nil {
-		return err
-	}
-
-	log.Info().Str("version", version).Str("url", downloadURL).Msg("Download information")
-
-	downloadClient := download.NewClient(
-		30*time.Second, // increased timeout
-		5,              // increased retryCount
-		5*time.Second,  // increased retryDelay
-		10,             // increased concurrentChunks
-		5*1024*1024,    // increased chunkSize (5MB)
-	)
-
-	ctx, cancel = context.WithTimeout(context.Background(), downloadTimeout)
-	defer cancel()
-
-	if err := downloadClient.DownloadFile(ctx, downloadURL, filePath); err != nil {
-		return err
-	}
-
-	if err := archive.UntarGz(filePath, filepath.Dir(config.CaddyBinPath)); err != nil {
-		return err
-	}
-
-	return nil
+	return performDownload("caddyserver", "caddy", preRelease)
 }
 
+// performDownloadSing handles the download of sing-box
 func performDownloadSing(preRelease bool) error {
+	return performDownload("SagerNet", "sing-box", preRelease)
+}
+
+// performDownload downloads a repository
+func performDownload(repoOwner, repoName string, preRelease bool) error {
 	client := github.NewClient(githubTimeout)
 
 	ctx, cancel := context.WithTimeout(context.Background(), apiTimeout)
 	defer cancel()
 
-	repoOwner := "SagerNet"
-	repoName := "sing-box"
 	filePath := filepath.Join(config.TmpDir, repoName+".tar.gz")
 
 	version, err := client.GetLatestRelease(ctx, repoOwner, repoName, preRelease)
@@ -125,11 +148,11 @@ func performDownloadSing(preRelease bool) error {
 	log.Info().Str("version", version).Str("url", downloadURL).Msg("Download information")
 
 	downloadClient := download.NewClient(
-		30*time.Second, // increased timeout
-		5,              // increased retryCount
-		5*time.Second,  // increased retryDelay
-		10,             // increased concurrentChunks
-		5*1024*1024,    // increased chunkSize (5MB)
+		30*time.Second, // timeout
+		5,              // retryCount
+		5*time.Second,  // retryDelay
+		10,             // concurrentChunks
+		5*1024*1024,    // chunkSize (5MB)
 	)
 
 	ctx, cancel = context.WithTimeout(context.Background(), downloadTimeout)
@@ -146,10 +169,9 @@ func performDownloadSing(preRelease bool) error {
 	return nil
 }
 
+// generateCaddyfile generates a Caddyfile for the given domain
 func generateCaddyfile(domain string) error {
-	caddyContent, err := caddyfile.GenerateCaddyfile(caddyfile.Config{
-		Domain: domain,
-	})
+	caddyContent, err := caddyfile.GenerateCaddyfile(caddyfile.Config{Domain: domain})
 	if err != nil {
 		return err
 	}
@@ -162,11 +184,11 @@ func generateCaddyfile(domain string) error {
 	return nil
 }
 
+// createServices generates systemd services
 func createServices() error {
 	if err := systemdservice.GenerateCaddyService(); err != nil {
 		return err
 	}
-
 	if err := systemdservice.GenerateSingBoxService(); err != nil {
 		return err
 	}
