@@ -7,7 +7,6 @@ import (
 	"sbx/internal/cmd"
 	"sbx/internal/config"
 	"sbx/internal/logger"
-	"sbx/pkg/singbox"
 	"sbx/pkg/systemdservice"
 
 	"github.com/rs/zerolog/log"
@@ -93,7 +92,7 @@ func createSingConfigCommand() *cmd.Command {
 		Flags:       &cmd.FlagSetParser{FlagSet: flag.NewFlagSet("config", flag.ContinueOnError)},
 		Run: func(c *cmd.Command, args []string) {
 			
-				singbox.CreateSingBoxConfig()
+				// singbox.CreateSingBoxConfig()
 		},
 		Help: "The `config` command generates Sing-box Config.",
 	}

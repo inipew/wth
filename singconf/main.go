@@ -14,94 +14,8 @@ func main() {
 	tcpFastOpen := true
 	sniffTimeout := "300ms"
 	sniff := true
-
-	// config := sing.Config{
-	// 	Log: sing.Log{
-	// 		Level:     "info",
-	// 		Output:    "/usr/local/sing-box/sing-box.log",
-	// 		Timestamp: true,
-	// 	},
-	// 	DNS: buildDNSConfig(),
-	// 	NTP: sing.NTP{
-	// 		Interval:   "5m0s",
-	// 		Server:     "time.apple.com",
-	// 		ServerPort: 123,
-	// 		Detour:     "direct",
-	// 	},
-	// 	Inbounds: []sing.Inbound{
-	// 		buildInboundConfig("vless", "vless-ws-in", 8001, tcpFastOpen, domainStrategy, listen, sniff, sniffTimeout, []sing.User{
-	// 			{Name: "default", UUID: generateUUID()},
-	// 		}, "ws", "vless"),
-	// 		buildInboundConfig("vmess", "vmess-ws-in", 8002, tcpFastOpen, domainStrategy, listen, sniff, sniffTimeout, []sing.User{
-	// 			{Name: "default", UUID: generateUUID()},
-	// 		}, "ws", "vmess"),
-	// 		buildInboundConfig("trojan", "trojan-ws-in", 8003, tcpFastOpen, domainStrategy, listen, sniff, sniffTimeout, []sing.User{
-	// 			{Name: "default", Password: generateUUID()},
-	// 		}, "ws", "trojan"),
-	// 		buildInboundConfig("vless", "vless-httpupgrade-in", 8004, tcpFastOpen, domainStrategy, listen, sniff, sniffTimeout, []sing.User{
-	// 			{Name: "default", UUID: generateUUID()},
-	// 		}, "httpupgrade", "vless"),
-	// 		buildInboundConfig("vmess", "vmess-httpupgrade-in", 8005, tcpFastOpen, domainStrategy, listen, sniff, sniffTimeout, []sing.User{
-	// 			{Name: "default", UUID: generateUUID()},
-	// 		}, "httpupgrade", "vmess"),
-	// 		buildInboundConfig("trojan", "trojan-httpupgrade-in", 8006, tcpFastOpen, domainStrategy, listen, sniff, sniffTimeout, []sing.User{
-	// 			{Name: "default", Password: generateUUID()},
-	// 		}, "httpupgrade", "trojan"),
-	// 		buildInboundConfig("vless", "vless-grpc-in", 8007, tcpFastOpen, domainStrategy, listen, sniff, sniffTimeout, []sing.User{
-	// 			{Name: "default", UUID: generateUUID()},
-	// 		}, "grpc", "vless"),
-	// 		buildInboundConfig("vmess", "vmess-grpc-in", 8008, tcpFastOpen, domainStrategy, listen, sniff, sniffTimeout, []sing.User{
-	// 			{Name: "default", UUID: generateUUID()},
-	// 		}, "grpc", "vmess"),
-	// 		buildInboundConfig("trojan", "trojan-grpc-in", 8009, tcpFastOpen, domainStrategy, listen, sniff, sniffTimeout, []sing.User{
-	// 			{Name: "default", Password: generateUUID()},
-	// 		}, "grpc", "trojan"),
-	// 		buildInboundConfig("socks","socks-in",8093,true,"prefer_ipv4", "0.0.0.0", true, "300ms",[]sing.User{
-	// 			{Username: "default",Password: generateUUID()},
-	// 		},"",""),
-	// 	},
-	// 	Outbounds: []sing.Outbound{
-	// 		buildOutboundConfig("direct", "direct", nil, ""),
-	// 		buildOutboundConfig("block", "block", nil, ""),
-	// 		buildOutboundConfig("dns-out", "dns", nil, ""),
-	// 		buildOutboundConfig("TrafficUmum", "selector", []string{"direct"}, "direct"),
-	// 		buildOutboundConfig("TrafficGoogle", "selector", []string{"direct"}, "direct"),
-	// 		buildOutboundConfig("TrafficAds", "selector", []string{"direct", "block"}, "block"),
-	// 		buildOutboundConfig("TrafficPorn", "selector", []string{"direct", "block"}, "block"),
-	// 	},
-	// 	Experimental: sing.Experimental{
-	// 		CacheFile: sing.CacheFile{
-	// 			Enabled:    true,
-	// 			Path:       "cache.db",
-	// 			StoreRDrc: true,
-	// 			CacheID:    "sing-box",
-	// 		},
-	// 		ClashAPI: sing.ClashAPI{
-	// 			ExternalController:        "0.0.0.0:9090",
-	// 			ExternalUI:                "yacd",
-	// 			ExternalUIDownloadURL:     "https://github.com/MetaCubeX/metacubexd/archive/refs/heads/gh-pages.zip",
-	// 			ExternalUIDownloadDetour:  "direct",
-	// 		},
-	// 	},
-	// }
-
-	// // Add users to inbounds
-	// addUserToInbounds(&config.Inbounds, "vmess", "ws", sing.User{Name: "pew", UUID: generateUUID()})
-	// addUserToInbounds(&config.Inbounds, "trojan", "", sing.User{Name: "pew", Password: generateUUID()})
-
-	// // Encode to JSON
-	// configJSON, err := json.MarshalIndent(config, "", "  ")
-	// if err != nil {
-	// 	log.Fatalf("Error encoding JSON: %v", err)
-	// }
-
-	// // Output JSON to file
-	// err = os.WriteFile("config.json", configJSON, 0644)
-	// if err != nil {
-	// 	log.Fatalf("Error writing JSON to file: %v", err)
-	// }
 	logDNSExperimental := sing.Config{
-		Log: &sing.Log{
+		Log: &sing.LogConfig{
 			Level:     "info",
 			Output:    "/usr/local/sing-box/sing-box.log",
 			Timestamp: true,
@@ -111,39 +25,39 @@ func main() {
 		NTP: BuildNTPConfig(),
 	}
 	inboundConfig := sing.Config{
-		Inbounds: []sing.Inbound{
-			buildInboundConfig("vless", "vless-ws-in", 8001, tcpFastOpen, domainStrategy, listen, sniff, sniffTimeout, []sing.User{
+		Inbounds: []sing.InboundConfig{
+			buildInboundConfig("vless", "vless-ws-in", 8001, tcpFastOpen, domainStrategy, listen, sniff, sniffTimeout, []sing.UserConfig{
 				{Name: "default", UUID: generateUUID()},
 			}, "ws", "vless"),
-			buildInboundConfig("vmess", "vmess-ws-in", 8002, tcpFastOpen, domainStrategy, listen, sniff, sniffTimeout, []sing.User{
+			buildInboundConfig("vmess", "vmess-ws-in", 8002, tcpFastOpen, domainStrategy, listen, sniff, sniffTimeout, []sing.UserConfig{
 				{Name: "default", UUID: generateUUID()},
 			}, "ws", "vmess"),
-			buildInboundConfig("trojan", "trojan-ws-in", 8003, tcpFastOpen, domainStrategy, listen, sniff, sniffTimeout, []sing.User{
+			buildInboundConfig("trojan", "trojan-ws-in", 8003, tcpFastOpen, domainStrategy, listen, sniff, sniffTimeout, []sing.UserConfig{
 				{Name: "default", Password: generateUUID()},
 			}, "ws", "trojan"),
-			buildInboundConfig("vless", "vless-httpupgrade-in", 8004, tcpFastOpen, domainStrategy, listen, sniff, sniffTimeout, []sing.User{
+			buildInboundConfig("vless", "vless-httpupgrade-in", 8004, tcpFastOpen, domainStrategy, listen, sniff, sniffTimeout, []sing.UserConfig{
 				{Name: "default", UUID: generateUUID()},
 			}, "httpupgrade", "vless"),
-			buildInboundConfig("vmess", "vmess-httpupgrade-in", 8005, tcpFastOpen, domainStrategy, listen, sniff, sniffTimeout, []sing.User{
+			buildInboundConfig("vmess", "vmess-httpupgrade-in", 8005, tcpFastOpen, domainStrategy, listen, sniff, sniffTimeout, []sing.UserConfig{
 				{Name: "default", UUID: generateUUID()},
 			}, "httpupgrade", "vmess"),
-			buildInboundConfig("trojan", "trojan-httpupgrade-in", 8006, tcpFastOpen, domainStrategy, listen, sniff, sniffTimeout, []sing.User{
+			buildInboundConfig("trojan", "trojan-httpupgrade-in", 8006, tcpFastOpen, domainStrategy, listen, sniff, sniffTimeout, []sing.UserConfig{
 				{Name: "default", Password: generateUUID()},
 			}, "httpupgrade", "trojan"),
-			buildInboundConfig("vless", "vless-grpc-in", 8007, tcpFastOpen, domainStrategy, listen, sniff, sniffTimeout, []sing.User{
+			buildInboundConfig("vless", "vless-grpc-in", 8007, tcpFastOpen, domainStrategy, listen, sniff, sniffTimeout, []sing.UserConfig{
 				{Name: "default", UUID: generateUUID()},
 			}, "grpc", "vless"),
-			buildInboundConfig("vmess", "vmess-grpc-in", 8008, tcpFastOpen, domainStrategy, listen, sniff, sniffTimeout, []sing.User{
+			buildInboundConfig("vmess", "vmess-grpc-in", 8008, tcpFastOpen, domainStrategy, listen, sniff, sniffTimeout, []sing.UserConfig{
 				{Name: "default", UUID: generateUUID()},
 			}, "grpc", "vmess"),
-			buildInboundConfig("trojan", "trojan-grpc-in", 8009, tcpFastOpen, domainStrategy, listen, sniff, sniffTimeout, []sing.User{
+			buildInboundConfig("trojan", "trojan-grpc-in", 8009, tcpFastOpen, domainStrategy, listen, sniff, sniffTimeout, []sing.UserConfig{
 				{Name: "default", Password: generateUUID()},
 			}, "grpc", "trojan"),
-			buildInboundConfig("socks","socks-in",8093,true,"prefer_ipv4", "0.0.0.0", true, "300ms",[]sing.User{
+			buildInboundConfig("socks","socks-in",8093,true,"prefer_ipv4", "0.0.0.0", true, "300ms",[]sing.UserConfig{
 				{Username: "default",Password: generateUUID()},
 			},"",""),
 		},
-		Route: sing.NewRouteConfig(),
+		Route: sing.BuildRouteConfig(),
 	}
 	if err := logDNSExperimental.SaveToFile("config.json"); err != nil{
 		log.Fatalf("error save json file: %s", err.Error())
@@ -161,7 +75,7 @@ func generateUUID() string {
 
 func buildDNSConfig() *sing.DNSConfig {
 	return &sing.DNSConfig{
-		Servers: []sing.DNSServer{
+		Servers: []sing.DNSServerConfig{
 			{
 				Tag:             "remote_dns",
 				Address:         "https://cloudflare-dns.com/dns-query",
@@ -180,7 +94,7 @@ func buildDNSConfig() *sing.DNSConfig {
 				Address: "rcode://success",
 			},
 		},
-		Rules: []sing.DNSRule{
+		Rules: []sing.DNSRuleConfig{
 			{
 				RuleSet: []string{"geosite-malicious", "geoip-malicious"},
 				Server:       "dns_block",
@@ -189,13 +103,13 @@ func buildDNSConfig() *sing.DNSConfig {
 			{
 				Type:       "logical",
 				Mode:       "and",
-				Rule:      []sing.Rule{{Protocol: "quic"}, {RuleSet: []string{"youtube"}}},
+				Rules:      []sing.DNSRuleConfig{{Protocol: "quic"}, {RuleSet: []string{"youtube"}}},
 				Server:     "dns_block",
 				DisableCache: true,
 				RewriteTTL:  10,
 			},
 			{
-				Outbounds: []string{"any"},
+				Outbound: []string{"any"},
 				Server:       "remote_dns",
 				ClientSubnet: "103.3.60.0/22",
 			},
@@ -205,8 +119,8 @@ func buildDNSConfig() *sing.DNSConfig {
 	}
 }
 
-func buildInboundConfig(types string, tag string, listenPort int, tcpFastOpen bool, domainStrategy, listen string, sniff bool, sniffTimeout string, users []sing.User, transporttype string, path string) sing.Inbound {
-	inbound := sing.Inbound{
+func buildInboundConfig(types string, tag string, listenPort int, tcpFastOpen bool, domainStrategy, listen string, sniff bool, sniffTimeout string, users []sing.UserConfig, transporttype string, path string) sing.InboundConfig {
+	inbound := sing.InboundConfig{
 		Type:          types,
 		Tag:           tag,
 		Listen:        listen,
@@ -221,9 +135,9 @@ func buildInboundConfig(types string, tag string, listenPort int, tcpFastOpen bo
 
 	// Check if the type is "socks"
 	if types != "socks" {
-		inbound.Multiplex = &sing.Multiplex{Enabled: true}
+		inbound.Multiplex = &sing.MultiplexConfig{Enabled: true}
 
-		inbound.Transport = &sing.Transport{
+		inbound.Transport = &sing.TransportConfig{
 			Type: transporttype,
 		}
 
@@ -242,8 +156,8 @@ func buildInboundConfig(types string, tag string, listenPort int, tcpFastOpen bo
 	return inbound
 }
 
-func buildOutboundConfig(tag, outboundType string, outbounds []string, defaultOutbound string) sing.Outbound {
-	config := sing.Outbound{
+func buildOutboundConfig(tag, outboundType string, outbounds []string, defaultOutbound string) sing.OutboundConfig {
+	config := sing.OutboundConfig{
 		Type: outboundType,
 		Tag:  tag,
 	}
@@ -258,7 +172,7 @@ func buildOutboundConfig(tag, outboundType string, outbounds []string, defaultOu
 	return config
 }
 
-func addUserToInbounds(inbounds *[]sing.Inbound, inboundType, transportType string, newUser sing.User) {
+func addUserToInbounds(inbounds *[]sing.InboundConfig, inboundType, transportType string, newUser sing.UserConfig) {
 	for i := range *inbounds {
 		inbound := &(*inbounds)[i]
 		if inbound.Type == inboundType {
@@ -269,15 +183,15 @@ func addUserToInbounds(inbounds *[]sing.Inbound, inboundType, transportType stri
 	}
 }
 
-func BuildExperimentalConf() *sing.Experimental{
-	return &sing.Experimental{
-		CacheFile: sing.CacheFile{
+func BuildExperimentalConf() *sing.ExperimentalConfig{
+	return &sing.ExperimentalConfig{
+		CacheFile: sing.CacheFileConfig{
 				Enabled:   true,
 				Path:      "caches.db",
 				CacheID:   "sing",
-				StoreRDrc: true,
+				StoreRDRC: true,
 			},
-			ClashAPI: sing.ClashAPI{
+			ClashAPI: sing.ClashAPIConfig{
 				ExternalController:      "[::]:9090",
 				ExternalUI:             "dashboard",
 				ExternalUIDownloadURL:  "https://github.com/MetaCubeX/metacubexd/archive/refs/heads/gh-pages.zip",
@@ -287,8 +201,8 @@ func BuildExperimentalConf() *sing.Experimental{
 	}
 }
 
-func BuildNTPConfig() *sing.NTP {
-    return &sing.NTP{
+func BuildNTPConfig() *sing.NTPConfig {
+    return &sing.NTPConfig{
 		Interval:   "5m0s",
 		Server:     "time.apple.com",
 		ServerPort: 123,

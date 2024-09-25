@@ -1,111 +1,111 @@
 package sing
 
-func NewRouteConfig() *Route {
-	return &Route{
-		Rules:               createRules(),
+func BuildRouteConfig() *RouteConfig {
+	return &RouteConfig{
+		Rules:               buildRouteRules(),
 		RuleSet:             createRuleSets(),
 		Final:               "TrafficUmum",
 		AutoDetectInterface: true,
 	}
 }
 
-func createRules() []RouteRule {
-	return []RouteRule{
-		createDNSRule(),
-		createDirectRule(),
-		createMaliciousRule(),
-		createQuicYoutubeRule(),
-		createAdsRule(),
-		createPornRule(),
-		createCloudflareRule(),
-		createGoogleRule(),
-		createWarpRule(),
-		createCommonPortsRule(),
+func buildRouteRules() []RouteRuleConfig {
+	return []RouteRuleConfig{
+		buildDNSRule(),
+		buildDirectRule(),
+		buildMaliciousRule(),
+		buildQuicYoutubeRule(),
+		buildAdsRule(),
+		buildPornRule(),
+		buildCloudflareRule(),
+		buildGoogleRule(),
+		buildWarpRule(),
+		buildCommonPortsRule(),
 	}
 }
 
-func createDNSRule() RouteRule {
-	return RouteRule{
+func buildDNSRule() RouteRuleConfig {
+	return RouteRuleConfig{
 		Type: "logical",
 		Mode: "or",
-		Rule: []Rule{
+		Rules: []RouteRuleConfig{
 			{Port: 53},
 			{Protocol: "dns"},
 		},
-		Outbounds: "dns-out",
+		Outbound: "dns-out",
 	}
 }
 
-func createDirectRule() RouteRule {
-	return RouteRule{
-		RuleSet:   []string{"direct_some_web", "geosite-google_ads"},
-		Outbounds: "direct",
+func buildDirectRule() RouteRuleConfig {
+	return RouteRuleConfig{
+		RuleSet:  []string{"direct_some_web", "geosite-google_ads"},
+		Outbound: "direct",
 	}
 }
 
-func createMaliciousRule() RouteRule {
-	return RouteRule{
-		RuleSet:   []string{"geosite-malicious", "geoip-malicious"},
-		Outbounds: "block",
+func buildMaliciousRule() RouteRuleConfig {
+	return RouteRuleConfig{
+		RuleSet:  []string{"geosite-malicious", "geoip-malicious"},
+		Outbound: "block",
 	}
 }
 
-func createQuicYoutubeRule() RouteRule {
-	return RouteRule{
+func buildQuicYoutubeRule() RouteRuleConfig {
+	return RouteRuleConfig{
 		Type: "logical",
 		Mode: "and",
-		Rule: []Rule{
+		Rules: []RouteRuleConfig{
 			{Protocol: "quic"},
 			{RuleSet: []string{"rule_youtube"}},
 		},
-		Outbounds: "block",
+		Outbound: "block",
 	}
 }
 
-func createAdsRule() RouteRule {
-	return RouteRule{
-		RuleSet:   []string{"oisd-full", "rule-ads", "d3ward"},
-		Outbounds: "TrafficAds",
+func buildAdsRule() RouteRuleConfig {
+	return RouteRuleConfig{
+		RuleSet:  []string{"oisd-full", "rule-ads", "d3ward"},
+		Outbound: "TrafficAds",
 	}
 }
 
-func createPornRule() RouteRule {
-	return RouteRule{
-		RuleSet:   []string{"oisd-nsfw", "category-porn"},
-		Outbounds: "TrafficPorn",
+func buildPornRule() RouteRuleConfig {
+	return RouteRuleConfig{
+		RuleSet:  []string{"oisd-nsfw", "category-porn"},
+		Outbound: "TrafficPorn",
 	}
 }
 
-func createCloudflareRule() RouteRule {
-	return RouteRule{
+func buildCloudflareRule() RouteRuleConfig {
+	return RouteRuleConfig{
 		DomainSuffix: []string{"gstatic.com", "cp.cloudflare.com"},
-		Outbounds:    "TrafficUmum",
+		Outbound:     "TrafficUmum",
 	}
 }
 
-func createGoogleRule() RouteRule {
-	return RouteRule{
-		RuleSet:   []string{"geoip_google", "google", "rule_youtube"},
-		Outbounds: "TrafficGoogle",
+func buildGoogleRule() RouteRuleConfig {
+	return RouteRuleConfig{
+		RuleSet:  []string{"geoip_google", "google", "rule_youtube"},
+		Outbound: "TrafficGoogle",
 	}
 }
 
-func createWarpRule() RouteRule {
-	return RouteRule{
-		RuleSet:   []string{"openai", "needwarp", "reddit", "geoip_cloudflare", "microsoft", "rule_github"},
-		Outbounds: "TrafficWarp",
+func buildWarpRule() RouteRuleConfig {
+	return RouteRuleConfig{
+		RuleSet:  []string{"openai", "needwarp", "reddit", "geoip_cloudflare", "microsoft", "rule_github"},
+		Outbound: "direct",
 	}
 }
 
-func createCommonPortsRule() RouteRule {
-	return RouteRule{
-		RuleSet:   []string{"googlefcm", "commonports"},
-		Outbounds: "TrafficUmum",
+func buildCommonPortsRule() RouteRuleConfig {
+	return RouteRuleConfig{
+		RuleSet:  []string{"googlefcm", "commonports"},
+		Outbound: "TrafficUmum",
 	}
 }
 
-func createRuleSets() []RuleSet {
-	return []RuleSet{
+func createRuleSets() []RuleSetConfig {
+	return []RuleSetConfig{
 		createRemoteRuleSet("direct_some_web", "https://cdn.jsdelivr.net/gh/inipew/any@main/direct-some-web.srs", "24h0m0s"),
 		createRemoteRuleSet("needwarp", "https://cdn.jsdelivr.net/gh/inipew/any@main/warped.srs", "24h0m0s"),
 		createRemoteRuleSet("adguard", "https://cdn.jsdelivr.net/gh/inipew/any@main/adguard.srs", "24h0m0s"),
@@ -131,8 +131,8 @@ func createRuleSets() []RuleSet {
 	}
 }
 
-func createRemoteRuleSet(tag, url, updateInterval string) RuleSet {
-	return RuleSet{
+func createRemoteRuleSet(tag, url, updateInterval string) RuleSetConfig {
+	return RuleSetConfig{
 		Type:           "remote",
 		Tag:            tag,
 		Format:         "binary",
@@ -141,96 +141,3 @@ func createRemoteRuleSet(tag, url, updateInterval string) RuleSet {
 		UpdateInterval: updateInterval,
 	}
 }
-// func NewRouteConfig() *Route {
-// 	return &Route{
-// 			Rules: []RouteRule{
-// 				{
-// 					Type: "logical",
-// 					Mode: "or",
-// 					Rule: []Rule{
-// 						{Port: 53},
-// 						{Protocol: "dns"},
-// 					},
-// 					Outbounds: "dns-out",
-// 				},
-// 				{
-// 					RuleSet:   []string{"direct_some_web", "geosite-google_ads"},
-// 					Outbounds: "direct",
-// 				},
-// 				{
-// 					RuleSet:   []string{"geosite-malicious", "geoip-malicious"},
-// 					Outbounds: "block",
-// 				},
-// 				{
-// 					Type: "logical",
-// 					Mode: "and",
-// 					Rule: []Rule{
-// 						{Protocol: "quic"},
-// 						{RuleSet: []string{"rule_youtube"}},
-// 					},
-// 					Outbounds: "block",
-// 				},
-// 				{
-// 					RuleSet:   []string{"oisd-full", "rule-ads", "d3ward"},
-// 					Outbounds: "TrafficAds",
-// 				},
-// 				{
-// 					RuleSet:   []string{"oisd-nsfw", "category-porn"},
-// 					Outbounds: "TrafficPorn",
-// 				},
-// 				{
-// 					DomainSuffix: []string{"gstatic.com", "cp.cloudflare.com"},
-// 					Outbounds:    "TrafficUmum",
-// 				},
-// 				{
-// 					RuleSet:   []string{"geoip_google", "google", "rule_youtube"},
-// 					Outbounds: "TrafficGoogle",
-// 				},
-// 				{
-// 					RuleSet:   []string{"openai", "needwarp", "reddit", "geoip_cloudflare", "microsoft", "rule_github"},
-// 					Outbounds: "TrafficWarp",
-// 				},
-// 				{
-// 					RuleSet:   []string{"googlefcm", "commonports"},
-// 					Outbounds: "TrafficUmum",
-// 				},
-// 			},
-// 			RuleSet: []RuleSet{
-// 				createRuleSet("direct_some_web", "24h0m0s"),
-// 				createRuleSet("needwarp", "24h0m0s"),
-// 				createRuleSet("adguard", "24h0m0s"),
-// 				createRuleSet("geosite-google_ads", "24h0m0s"),
-// 				createRuleSet("geoip-malicious", "24h0m0s"),
-// 				createRuleSet("oisd-full", "168h0m0s"),
-// 				createRuleSet("oisd-nsfw", "168h0m0s"),
-// 				createRuleSet("rule-ads", "168h0m0s"),
-// 				createRuleSet("d3ward", "168h0m0s"),
-// 				createRuleSet("geosite-malicious", "168h0m0s"),
-// 				createRuleSet("category-porn", "168h0m0s"),
-// 				createRuleSet("openai", "168h0m0s"),
-// 				createRuleSet("onedrive", "168h0m0s"),
-// 				createRuleSet("microsoft", "168h0m0s"),
-// 				createRuleSet("rule_github", "168h0m0s"),
-// 				createRuleSet("rule_youtube", "168h0m0s"),
-// 				createRuleSet("google", "168h0m0s"),
-// 				createRuleSet("googlefcm", "168h0m0s"),
-// 				createRuleSet("reddit", "168h0m0s"),
-// 				createRuleSet("geoip_google", "168h0m0s"),
-// 				createRuleSet("geoip_cloudflare", "168h0m0s"),
-// 				createRuleSet("commonports", "720h0m0s"),
-// 			},
-// 			Final:               "TrafficUmum",
-// 			AutoDetectInterface: true,
-// 		}
-// }
-
-// func createRuleSet(tag string, updateInterval string) RuleSet {
-// 	return RuleSet{
-// 		Type:            "remote",
-// 		Tag:             tag,
-// 		Format:          "binary",
-// 		URL:             "https://cdn.jsdelivr.net/gh/malikshi/sing-box-geo@rule-set-geosite/geosite-" + tag + ".srs",
-// 		DownloadDetour:  "direct",
-// 		UpdateInterval:  updateInterval,
-// 	}
-// }
