@@ -1,0 +1,502 @@
+{
+  "inbounds": [
+    {
+      "type": "vless",
+      "tag": "vless-ws-in",
+      "listen": "0.0.0.0",
+      "listen_port": 8001,
+      "tcp_fast_open": true,
+      "sniff": true,
+      "sniff_timeout": "300ms",
+      "domain_strategy": "prefer_ipv4",
+      "users": [
+        {
+          "name": "default",
+          "uuid": "da93b347-4ebd-4976-b533-caa9e3d7b1fa"
+        }
+      ],
+      "multiplex": {
+        "enabled": true
+      },
+      "transport": {
+        "type": "ws",
+        "path": "/vless",
+        "early_data_header_name": "Sec-WebSocket-Protocol"
+      }
+    },
+    {
+      "type": "vmess",
+      "tag": "vmess-ws-in",
+      "listen": "0.0.0.0",
+      "listen_port": 8002,
+      "tcp_fast_open": true,
+      "sniff": true,
+      "sniff_timeout": "300ms",
+      "domain_strategy": "prefer_ipv4",
+      "users": [
+        {
+          "name": "default",
+          "uuid": "36f7dc46-5ec1-4fd7-996e-2e8fd80ed22b"
+        }
+      ],
+      "multiplex": {
+        "enabled": true
+      },
+      "transport": {
+        "type": "ws",
+        "path": "/vmess",
+        "early_data_header_name": "Sec-WebSocket-Protocol"
+      }
+    },
+    {
+      "type": "trojan",
+      "tag": "trojan-ws-in",
+      "listen": "0.0.0.0",
+      "listen_port": 8003,
+      "tcp_fast_open": true,
+      "sniff": true,
+      "sniff_timeout": "300ms",
+      "domain_strategy": "prefer_ipv4",
+      "users": [
+        {
+          "name": "default",
+          "password": "5a885807-dadd-43e3-bb8b-8d7609cb384c"
+        }
+      ],
+      "multiplex": {
+        "enabled": true
+      },
+      "transport": {
+        "type": "ws",
+        "path": "/trojan",
+        "early_data_header_name": "Sec-WebSocket-Protocol"
+      }
+    },
+    {
+      "type": "vless",
+      "tag": "vless-httpupgrade-in",
+      "listen": "0.0.0.0",
+      "listen_port": 8004,
+      "tcp_fast_open": true,
+      "sniff": true,
+      "sniff_timeout": "300ms",
+      "domain_strategy": "prefer_ipv4",
+      "users": [
+        {
+          "name": "default",
+          "uuid": "9e4abee8-fa21-4cf4-bae5-3138c53c0506"
+        }
+      ],
+      "multiplex": {
+        "enabled": true
+      },
+      "transport": {
+        "type": "httpupgrade",
+        "path": "/vless"
+      }
+    },
+    {
+      "type": "vmess",
+      "tag": "vmess-httpupgrade-in",
+      "listen": "0.0.0.0",
+      "listen_port": 8005,
+      "tcp_fast_open": true,
+      "sniff": true,
+      "sniff_timeout": "300ms",
+      "domain_strategy": "prefer_ipv4",
+      "users": [
+        {
+          "name": "default",
+          "uuid": "17caa154-e89a-4765-aa62-b16d128688d4"
+        }
+      ],
+      "multiplex": {
+        "enabled": true
+      },
+      "transport": {
+        "type": "httpupgrade",
+        "path": "/vmess"
+      }
+    },
+    {
+      "type": "trojan",
+      "tag": "trojan-httpupgrade-in",
+      "listen": "0.0.0.0",
+      "listen_port": 8006,
+      "tcp_fast_open": true,
+      "sniff": true,
+      "sniff_timeout": "300ms",
+      "domain_strategy": "prefer_ipv4",
+      "users": [
+        {
+          "name": "default",
+          "password": "7dbfd1ab-6489-4dd1-ba99-9a1d8fc11e46"
+        }
+      ],
+      "multiplex": {
+        "enabled": true
+      },
+      "transport": {
+        "type": "httpupgrade",
+        "path": "/trojan"
+      }
+    },
+    {
+      "type": "vless",
+      "tag": "vless-grpc-in",
+      "listen": "0.0.0.0",
+      "listen_port": 8007,
+      "tcp_fast_open": true,
+      "sniff": true,
+      "sniff_timeout": "300ms",
+      "domain_strategy": "prefer_ipv4",
+      "users": [
+        {
+          "name": "default",
+          "uuid": "635de4e5-3bf7-4421-ab01-d509577a7666"
+        }
+      ],
+      "multiplex": {
+        "enabled": true
+      },
+      "transport": {
+        "type": "grpc",
+        "service_name": "vless"
+      }
+    },
+    {
+      "type": "vmess",
+      "tag": "vmess-grpc-in",
+      "listen": "0.0.0.0",
+      "listen_port": 8008,
+      "tcp_fast_open": true,
+      "sniff": true,
+      "sniff_timeout": "300ms",
+      "domain_strategy": "prefer_ipv4",
+      "users": [
+        {
+          "name": "default",
+          "uuid": "c63e24b6-55e2-4233-9d91-32743a5e3063"
+        }
+      ],
+      "multiplex": {
+        "enabled": true
+      },
+      "transport": {
+        "type": "grpc",
+        "service_name": "vmess"
+      }
+    },
+    {
+      "type": "trojan",
+      "tag": "trojan-grpc-in",
+      "listen": "0.0.0.0",
+      "listen_port": 8009,
+      "tcp_fast_open": true,
+      "sniff": true,
+      "sniff_timeout": "300ms",
+      "domain_strategy": "prefer_ipv4",
+      "users": [
+        {
+          "name": "default",
+          "password": "8b4aee48-e0b3-48e5-8f75-d0fe3a3735d1"
+        }
+      ],
+      "multiplex": {
+        "enabled": true
+      },
+      "transport": {
+        "type": "grpc",
+        "service_name": "trojan"
+      }
+    },
+    {
+      "type": "socks",
+      "tag": "socks-in",
+      "listen": "0.0.0.0",
+      "listen_port": 8093,
+      "tcp_fast_open": true,
+      "sniff": true,
+      "sniff_timeout": "300ms",
+      "domain_strategy": "prefer_ipv4",
+      "users": [
+        {
+          "Username": "default",
+          "Password": "a4e9a30e-c3c2-46e9-8617-a0782e7b37e8"
+        }
+      ]
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "type": "logical",
+        "mode": "or",
+        "rules": [
+          {
+            "port": 53
+          },
+          {
+            "protocol": "dns"
+          }
+        ],
+        "outbound": "dns-out"
+      },
+      {
+        "rule_set": [
+          "direct_some_web",
+          "geosite-google_ads"
+        ],
+        "outbound": "direct"
+      },
+      {
+        "rule_set": [
+          "geosite-malicious",
+          "geoip-malicious"
+        ],
+        "outbound": "block"
+      },
+      {
+        "type": "logical",
+        "mode": "and",
+        "rules": [
+          {
+            "protocol": "quic"
+          },
+          {
+            "rule_set": "rule_youtube"
+          }
+        ],
+        "outbound": "block"
+      },
+      {
+        "rule_set": [
+          "oisd-full",
+          "rule-ads",
+          "d3ward"
+        ],
+        "outbound": "TrafficAds"
+      },
+      {
+        "rule_set": [
+          "oisd-nsfw",
+          "category-porn"
+        ],
+        "outbound": "TrafficPorn"
+      },
+      {
+        "domain_suffix": [
+          "gstatic.com",
+          "cp.cloudflare.com"
+        ],
+        "outbound": "TrafficUmum"
+      },
+      {
+        "rule_set": [
+          "geoip_google",
+          "google",
+          "rule_youtube"
+        ],
+        "outbound": "TrafficGoogle"
+      },
+      {
+        "rule_set": [
+          "openai",
+          "needwarp",
+          "reddit",
+          "geoip_cloudflare",
+          "microsoft",
+          "rule_github"
+        ],
+        "outbound": "TrafficWarp"
+      },
+      {
+        "rule_set": [
+          "googlefcm",
+          "commonports"
+        ],
+        "outbound": "TrafficUmum"
+      }
+    ],
+    "rule_set": [
+      {
+        "type": "remote",
+        "tag": "direct_some_web",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/inipew/any@main/direct-some-web.srs",
+        "download_detour": "direct",
+        "update_interval": "24h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "needwarp",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/inipew/any@main/warped.srs",
+        "download_detour": "direct",
+        "update_interval": "24h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "adguard",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/inipew/any@main/adguard.srs",
+        "download_detour": "direct",
+        "update_interval": "24h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "geosite-google_ads",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/malikshi/sing-box-geo@rule-set-geosite/geosite-google-ads.srs",
+        "download_detour": "direct",
+        "update_interval": "24h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "geoip-malicious",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/malikshi/sing-box-geo@rule-set-geoip/geoip-malicious.srs",
+        "download_detour": "direct",
+        "update_interval": "24h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "oisd-full",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/malikshi/sing-box-geo@rule-set-geosite/geosite-oisd-full.srs",
+        "download_detour": "direct",
+        "update_interval": "168h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "oisd-nsfw",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/malikshi/sing-box-geo@rule-set-geosite/geosite-oisd-nsfw.srs",
+        "download_detour": "direct",
+        "update_interval": "168h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "rule-ads",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/malikshi/sing-box-geo@rule-set-geosite/geosite-rule-ads.srs",
+        "download_detour": "direct",
+        "update_interval": "168h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "d3ward",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/malikshi/sing-box-geo@rule-set-geosite/geosite-d3ward.srs",
+        "download_detour": "direct",
+        "update_interval": "168h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "geosite-malicious",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/malikshi/sing-box-geo@rule-set-geosite/geosite-rule-malicious.srs",
+        "download_detour": "direct",
+        "update_interval": "168h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "category-porn",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/malikshi/sing-box-geo@rule-set-geosite/geosite-category-porn.srs",
+        "download_detour": "direct",
+        "update_interval": "168h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "openai",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/malikshi/sing-box-geo@rule-set-geosite/geosite-openai.srs",
+        "download_detour": "direct",
+        "update_interval": "168h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "onedrive",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/malikshi/sing-box-geo@rule-set-geosite/geosite-onedrive.srs",
+        "download_detour": "direct",
+        "update_interval": "168h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "microsoft",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/malikshi/sing-box-geo@rule-set-geosite/geosite-microsoft.srs",
+        "download_detour": "direct",
+        "update_interval": "168h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "rule_github",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/malikshi/sing-box-geo@rule-set-geosite/geosite-github.srs",
+        "download_detour": "direct",
+        "update_interval": "168h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "rule_youtube",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/malikshi/sing-box-geo@rule-set-geosite/geosite-youtube.srs",
+        "download_detour": "direct",
+        "update_interval": "168h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "google",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/malikshi/sing-box-geo@rule-set-geosite/geosite-google.srs",
+        "download_detour": "direct",
+        "update_interval": "168h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "googlefcm",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/malikshi/sing-box-geo@rule-set-geosite/geosite-googlefcm.srs",
+        "download_detour": "direct",
+        "update_interval": "168h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "reddit",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/malikshi/sing-box-geo@rule-set-geosite/geosite-reddit.srs",
+        "download_detour": "direct",
+        "update_interval": "168h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "geoip_google",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/malikshi/sing-box-geo@rule-set-geoip/geoip-google.srs",
+        "download_detour": "direct",
+        "update_interval": "168h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "geoip_cloudflare",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/malikshi/sing-box-geo@rule-set-geoip/geoip-cloudflare.srs",
+        "download_detour": "direct",
+        "update_interval": "168h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "commonports",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/inipew/any@main/commonports.srs",
+        "download_detour": "direct",
+        "update_interval": "720h0m0s"
+      }
+    ],
+    "final": "TrafficUmum",
+    "auto_detect_interface": true
+  }
+}

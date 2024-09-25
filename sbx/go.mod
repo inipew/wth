@@ -4,6 +4,7 @@ go 1.23.1
 
 require (
 	github.com/google/go-github/v63 v63.0.0
+	github.com/google/uuid v1.6.0
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
 	github.com/rs/zerolog v1.33.0
 	github.com/schollz/progressbar/v3 v3.15.0

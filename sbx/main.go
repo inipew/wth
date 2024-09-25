@@ -1,32 +1,23 @@
 package main
 
 import (
-	"context"
 	"flag"
-	"path/filepath"
-	"sbx/internal/archive"
+	"sbx/commands"
 	"sbx/internal/caddyfile"
 	"sbx/internal/cmd"
 	"sbx/internal/config"
-	"sbx/internal/download"
-	"sbx/internal/github"
 	"sbx/internal/logger"
-	"sbx/internal/systemdservice"
-	"time"
+	"sbx/pkg/singbox"
+	"sbx/pkg/systemdservice"
 
 	"github.com/rs/zerolog/log"
-)
-
-const (
-	githubTimeout    = 10 * time.Second
-	apiTimeout       = 30 * time.Second
-	downloadTimeout  = 1 * time.Hour
 )
 
 func main() {
 	if err := logger.InitLogger(); err != nil {
 		log.Fatal().Err(err).Msg("Failed to initialize logger")
 	}
+	config.CreateAllDirs()
 
 	myCLI := cmd.NewCLI("1.0.0")
 
@@ -35,6 +26,7 @@ func main() {
 	myCLI.AddCommand(createCaddyCommand())
 	myCLI.AddCommand(createCaddyfileCommand())
 	myCLI.AddCommand(createServiceCommand())
+	myCLI.AddCommand(createSingConfigCommand())
 
 	// Execute the CLI
 	myCLI.Execute()
@@ -50,7 +42,7 @@ func createSingCommand() *cmd.Command {
 		Description: "Download the latest release of sing-box.",
 		Flags:       flags,
 		Run: func(c *cmd.Command, args []string) {
-			if err := performDownloadSing(*latestFlag); err != nil {
+			if err := commands.PerformDownloadSing(*latestFlag); err != nil {
 				log.Fatal().Err(err).Msg("Error in download operation")
 			}
 		},
@@ -68,7 +60,7 @@ func createCaddyCommand() *cmd.Command {
 		Description: "Download the latest release of Caddy.",
 		Flags:       flags,
 		Run: func(c *cmd.Command, args []string) {
-			if err := performDownloadCaddy(*latestFlag); err != nil {
+			if err := commands.PerformDownloadCaddy(*latestFlag); err != nil {
 				log.Fatal().Err(err).Msg("Error in download operation")
 			}
 		},
@@ -94,6 +86,19 @@ func createCaddyfileCommand() *cmd.Command {
 	}
 }
 
+func createSingConfigCommand() *cmd.Command {
+	return &cmd.Command{
+		Name:        "config",
+		Description: "Generate sing-box config.",
+		Flags:       &cmd.FlagSetParser{FlagSet: flag.NewFlagSet("config", flag.ContinueOnError)},
+		Run: func(c *cmd.Command, args []string) {
+			
+				singbox.CreateSingBoxConfig()
+		},
+		Help: "The `config` command generates Sing-box Config.",
+	}
+}
+
 // createServiceCommand sets up the 'service' command
 func createServiceCommand() *cmd.Command {
 	return &cmd.Command{
@@ -114,59 +119,6 @@ func setupCommandFlags(commandName string, latestFlag *bool) *cmd.FlagSetParser 
 	flags.BoolVar(latestFlag, "latest", false, "Download the latest prerelease version")
 	flags.BoolVar(latestFlag, "l", false, "Download the latest prerelease version (shorthand for --latest")
 	return flags
-}
-
-// performDownloadCaddy handles the download of Caddy
-func performDownloadCaddy(preRelease bool) error {
-	return performDownload("caddyserver", "caddy", preRelease)
-}
-
-// performDownloadSing handles the download of sing-box
-func performDownloadSing(preRelease bool) error {
-	return performDownload("SagerNet", "sing-box", preRelease)
-}
-
-// performDownload downloads a repository
-func performDownload(repoOwner, repoName string, preRelease bool) error {
-	client := github.NewClient(githubTimeout)
-
-	ctx, cancel := context.WithTimeout(context.Background(), apiTimeout)
-	defer cancel()
-
-	filePath := filepath.Join(config.TmpDir, repoName+".tar.gz")
-
-	version, err := client.GetLatestRelease(ctx, repoOwner, repoName, preRelease)
-	if err != nil {
-		return err
-	}
-
-	downloadURL, err := github.BuildDownloadURL(repoOwner, repoName, version)
-	if err != nil {
-		return err
-	}
-
-	log.Info().Str("version", version).Str("url", downloadURL).Msg("Download information")
-
-	downloadClient := download.NewClient(
-		30*time.Second, // timeout
-		5,              // retryCount
-		5*time.Second,  // retryDelay
-		10,             // concurrentChunks
-		5*1024*1024,    // chunkSize (5MB)
-	)
-
-	ctx, cancel = context.WithTimeout(context.Background(), downloadTimeout)
-	defer cancel()
-
-	if err := downloadClient.DownloadFile(ctx, downloadURL, filePath); err != nil {
-		return err
-	}
-
-	if err := archive.UntarGz(filePath, filepath.Dir(config.CaddyBinPath)); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // generateCaddyfile generates a Caddyfile for the given domain
@@ -196,3 +148,71 @@ func createServices() error {
 	log.Info().Msg("Services generated successfully")
 	return nil
 }
+
+// func createDNSJson(){
+// 	cfg := singconf.Config{
+// 		Log: singconf.Log{
+// 			Level:     "info",
+// 			Output:    config.SingboxLogFilePath,
+// 			Timestamp: true,
+// 		},
+// 		DNS: singconf.DNSConfig{
+// 			Servers: []singconf.DNSServer{
+// 				{
+// 					Tag:             "remote_dns",
+// 					Address:         "https://cloudflare-dns.com/dns-query",
+// 					AddressResolver: "dns_local",
+// 					Strategy:        "prefer_ipv4",
+// 					Detour:          "direct",
+// 				},
+// 				{
+// 					Tag:     "dns_local",
+// 					Address: "local",
+// 					Strategy: "prefer_ipv4",
+// 					Detour:   "direct",
+// 				},
+// 				{
+// 					Tag:    "dns_block",
+// 					Address: "rcode://success",
+// 				},
+// 			},
+// 			Rules: []singconf.DNSRule{
+// 				{
+// 					RuleSet:      []string{"geosite-malicious", "geoip-malicious"},
+// 					Server:       "dns_block",
+// 					DisableCache: true,
+// 				},
+// 				{
+// 					Type:         "logical",
+// 					Mode:         "and",
+// 					Rules:       []singconf.Rule{
+// 						{Protocol: "quic"},
+// 						{RuleSet: "youtube"},
+// 					},
+// 					Server:       "dns_block",
+// 					DisableCache: true,
+// 					RewriteTTL:   10,
+// 				},
+// 				{
+// 					Outbounds:     []string{"any"},
+// 					Server:       "remote_dns",
+// 					ClientSubnet: "103.3.60.0/22",
+// 				},
+// 			},
+// 			Final:            "remote_dns",
+// 			IndependentCache: true,
+// 		},
+// 		NTP: singconf.NTP{
+// 			Interval:   "5m0s",
+// 			Server:     "time.apple.com",
+// 			ServerPort: 123,
+// 			Detour:     "direct",
+// 		},
+// 	}
+
+// 	if err := cfg.SaveToFile(filepath.Join(config.SingboxConfDir,"/00_log_and_dns.json")); err != nil {
+// 		log.Fatal().Msgf("failed to save config: %v", err)
+// 	}
+
+// 	log.Info().Msg("config.json created successfully.")
+// }
