@@ -100,120 +100,80 @@
 </template>
 
 <script>
-import axios from "axios";
-import ArchiveModal from "../components/ArchiveModal.vue";
-import PermissionModal from "@/components/PermissionModal.vue";
-import RenameModal from "./RenameModal.vue";
-import { useToast } from "vue-toastification";
+import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+import { useToast } from 'vue-toastification';
+import axios from 'axios';
+import ArchiveModal from '../components/ArchiveModal.vue';
+import PermissionModal from '@/components/PermissionModal.vue';
+import RenameModal from './RenameModal.vue';
 
 export default {
-  name: "FileTable",
-  props: {
-    files: Array,
-    previousPath: String,
-  },
+  name: 'FileTable',
   components: {
     ArchiveModal,
     PermissionModal,
     RenameModal,
   },
-  data() {
-    return {
-      archiveFiles: [],
-      currentPath: "",
-      showArchiveModal: false,
-      showPermissionModal: false,
-      showRenameModal: false,
-      permissionsData: {
-        filepath: "",
-        permissions: "",
-      },
-      renameData: {
-        oldPath: "",
-        name: "",
-      },
+  props: {
+    files: Array,
+    previousPath: String,
+  },
+  setup(props, { emit }) {
+    const router = useRouter();
+    const toast = useToast();
+
+    const archiveFiles = ref([]);
+    const currentPath = ref('');
+    const showArchiveModal = ref(false);
+    const showPermissionModal = ref(false);
+    const showRenameModal = ref(false);
+    const permissionsData = ref({ filepath: '', permissions: '' });
+    const renameData = ref({ oldPath: '', name: '' });
+
+    onMounted(() => {
+      currentPath.value = localStorage.getItem('currentPath') || '';
+    });
+
+    const isArchiveFile = (filename) => {
+      return ['.zip', '.tar.gz', '.tar', '.gz'].some((ext) => filename.endsWith(ext));
     };
-  },
-  mounted() {
-    this.currentPath = localStorage.getItem("currentPath") || "";
-  },
-  methods: {
-    isArchiveFile(filename) {
-      return [".zip", ".tar.gz", ".tar", ".gz"].some((ext) =>
-        filename.endsWith(ext)
-      );
-    },
-    navigateTo(path) {
-      this.$emit("navigateTo", path);
-    },
-    async deleteFile(file) {
+
+    const navigateTo = (path) => {
+      emit('navigateTo', path);
+    };
+
+    const deleteFile = async (file) => {
       if (confirm(`Are you sure you want to delete ${file.name}?`)) {
-        const toast = useToast();
-
         try {
-          const response = await axios.delete("/api/files/delete", {
-            data: { path: file.path },
-          });
-          toast.success(response.data.message, this.$emit("getToastOptions"));
-          this.$emit("fetchFiles", this.currentPath);
+          const response = await axios.delete('/api/files/delete', { data: { path: file.path } });
+          toast.success(response.data.message, emit('getToastOptions'));
+          emit('fetchFiles', currentPath.value);
         } catch (error) {
-          let errorMessage = "Failed to delete file.";
-
-          // Determine specific error message
-          if (error.response) {
-            errorMessage = error.response.data.message || errorMessage;
-          } else if (error.request) {
-            errorMessage = "No response received from server.";
-          } else {
-            errorMessage = "An error occurred while processing your request.";
-          }
-          toast.error(errorMessage, this.$emit("getToastOptions"));
+          handleError('Failed to delete file.', error);
         }
       }
-    },
-    async viewArchive(path) {
-      const toast = useToast();
+    };
+
+    const viewArchive = async (path) => {
       try {
-        const response = await axios.get("/api/files/view_archive", {
-          params: { path },
-        });
-        this.archiveFiles = response.data;
+        const response = await axios.get('/api/files/view_archive', { params: { path } });
+        archiveFiles.value = response.data;
       } catch (error) {
-        let errorMessage = "Failed to fetch archive contents.";
-
-        // Determine specific error message
-        if (error.response) {
-          errorMessage = error.response.data.message || errorMessage;
-        } else if (error.request) {
-          errorMessage = "No response received from server.";
-        } else {
-          errorMessage = "An error occurred while processing your request.";
-        }
-        toast.error(errorMessage, this.$emit("getToastOptions"));
+        handleError('Failed to fetch archive contents.', error);
       }
-    },
-    async downloadFile(file) {
+    };
+
+    const downloadFile = async (file) => {
       if (confirm(`Are you sure you want to download ${file.name}?`)) {
-        const toast = useToast();
         try {
-          const url = `/api/files/download?file=${encodeURIComponent(
-            file.path
-          )}`;
-
-          const response = await axios.get(url, { responseType: "blob" });
-
-          const contentDisposition = response.headers["content-disposition"];
-          const fileNameMatch = contentDisposition
-            ? contentDisposition.match(/filename="(.+)"/)
-            : null;
+          const url = `/api/files/download?file=${encodeURIComponent(file.path)}`;
+          const response = await axios.get(url, { responseType: 'blob' });
+          const contentDisposition = response.headers['content-disposition'];
+          const fileNameMatch = contentDisposition ? contentDisposition.match(/filename="(.+)"/) : null;
           const actualFileName = fileNameMatch ? fileNameMatch[1] : file.name;
-
-          const blob = new Blob([response.data], {
-            type:
-              response.headers["content-type"] || "application/octet-stream",
-          });
-
-          const link = document.createElement("a");
+          const blob = new Blob([response.data], { type: response.headers['content-type'] || 'application/octet-stream' });
+          const link = document.createElement('a');
           link.href = URL.createObjectURL(blob);
           link.download = actualFileName;
           document.body.appendChild(link);
@@ -221,67 +181,85 @@ export default {
           document.body.removeChild(link);
           URL.revokeObjectURL(link.href);
         } catch (error) {
-          let errorMessage = "Error downloading file.";
-
-          // Determine specific error message
-          if (error.response) {
-            errorMessage = error.response.data.message || errorMessage;
-          } else if (error.request) {
-            errorMessage = "No response received from server.";
-          } else {
-            errorMessage = "An error occurred while processing your request.";
-          }
-          toast.error(errorMessage, this.$emit("getToastOptions"));
+          handleError('Error downloading file.', error);
         }
       }
-    },
-    openPermissionModal(file) {
-      this.permissionsData = {
-        filepath: file.path,
-        permissions: file.permissions,
-      };
-      this.showPermissionModal = true;
-    },
-    openRenameModal(file) {
-      this.renameData = {
-        oldPath: file.path,
-        name: file.name,
-      };
-      this.showRenameModal = true;
-    },
-    closeRenameModal() {
-      this.renameData = [];
-      this.showRenameModal = false;
-    },
-    openArchiveModal(path) {
-      this.viewArchive(path);
-      this.showArchiveModal = true;
-    },
-    closeArchiveModal() {
-      this.showArchiveModal = false;
-      this.archiveFiles = [];
-    },
-    goToEditPage(file) {
-      this.$router.push({
-        name: "EditItem",
+    };
+
+    const openPermissionModal = (file) => {
+      permissionsData.value = { filepath: file.path, permissions: file.permissions };
+      showPermissionModal.value = true;
+    };
+
+    const openRenameModal = (file) => {
+      renameData.value = { oldPath: file.path, name: file.name };
+      showRenameModal.value = true;
+    };
+
+    const closeRenameModal = () => {
+      renameData.value = { oldPath: '', name: '' };
+      showRenameModal.value = false;
+    };
+
+    const openArchiveModal = (path) => {
+      viewArchive(path);
+      showArchiveModal.value = true;
+    };
+
+    const closeArchiveModal = () => {
+      showArchiveModal.value = false;
+      archiveFiles.value = [];
+    };
+
+    const goToEditPage = (file) => {
+      router.push({
+        name: 'EditItem',
         params: { filepath: encodeURIComponent(file.path) },
       });
-    },
-    handleRowClick(file) {
+    };
+
+    const handleRowClick = (file) => {
       if (file.is_dir) {
-        this.navigateTo(file.path);
-      } else if (this.isArchiveFile(file.name)) {
-        this.openArchiveModal(file.path);
+        navigateTo(file.path);
+      } else if (isArchiveFile(file.name)) {
+        openArchiveModal(file.path);
       } else if (file.is_editable) {
-        this.goToEditPage(file);
+        goToEditPage(file);
       } else if (!file.is_editable && !file.is_dir) {
-        this.downloadFile(file);
+        downloadFile(file);
       }
-    },
-    handleError(message, error) {
+    };
+
+    const handleError = (message, error) => {
       console.error(message, error);
-      alert(message);
-    },
+      toast.error(message, emit('getToastOptions'));
+    };
+
+    const formatDate = (dateString) => {
+      const date = new Date(dateString);
+      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+    };
+    
+    return {
+      archiveFiles,
+      currentPath,
+      showArchiveModal,
+      showPermissionModal,
+      showRenameModal,
+      permissionsData,
+      renameData,
+      isArchiveFile,
+      navigateTo,
+      deleteFile,
+      openPermissionModal,
+      openRenameModal,
+      closeRenameModal,
+      openArchiveModal,
+      closeArchiveModal,
+      goToEditPage,
+      handleRowClick,
+      formatDate,
+    };
   },
 };
 </script>

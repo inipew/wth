@@ -1,4 +1,4 @@
-package utils
+package helper
 
 import (
 	"files/internal/models"
@@ -64,6 +64,31 @@ func IsValidPath(path string) bool {
 	}
 	return !strings.Contains(absPath, "..") && len(strings.Split(absPath, string(os.PathSeparator))) <= maxPathDepth
 }
+
+// func IsValidPath(baseDir, newPath string) bool {
+// 	// Dapatkan path absolut dari baseDir
+// 	absBaseDir, err := filepath.Abs(baseDir)
+// 	if err != nil {
+// 		log.Logger.Error().Err(err).Str("baseDir", baseDir).Str("newPath", newPath).Msg("Failed to get absolute path")
+// 		return false
+// 	}
+
+// 	// Dapatkan path absolut dari newPath
+// 	absNewPath, err := filepath.Abs(newPath)
+// 	if err != nil {
+// 		log.Logger.Error().Err(err).Str("baseDir", baseDir).Str("newPath", newPath).Msg("Failed to get absolute path")
+// 		return false
+// 	}
+
+// 	// Periksa apakah absNewPath adalah subdirektori dari absBaseDir
+// 	if !strings.HasPrefix(absNewPath, absBaseDir) {
+// 		return false
+// 	}
+
+// 	// Periksa kedalaman path
+// 	pathDepth := len(strings.Split(absNewPath[len(absBaseDir):], string(os.PathSeparator)))
+// 	return pathDepth <= maxPathDepth
+// }
 
 // sortFileInfos mengurutkan slice FileInfo berdasarkan direktori dan nama
 func SortFileInfos(fileInfos []models.FileInfo) {
