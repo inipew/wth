@@ -9,59 +9,77 @@ import (
 	"path/filepath"
 	"strings"
 
+	"files/internal/config"
 	"files/internal/core/file"
 	"files/internal/models"
 	"files/internal/utils/helper"
+	"files/internal/utils/logger"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/rs/zerolog/log"
 )
 
+// Handlers struct holds the configuration for the handlers
+type Handlers struct {
+	Config      *config.Config
+	FileManager *file.FileManager
+	Logger      *logger.Logger
+}
+
+// NewHandlers creates a new Handlers instance with the given configuration
+func NewHandlers(cfg *config.Config, log *logger.Logger) *Handlers {
+    fileManager := file.NewFileManager(cfg)
+    return &Handlers{
+        Config:      cfg,
+        FileManager: fileManager,
+        Logger:      log, // Inisialisasi logger
+    }
+}
+
 // FileHandler handles file listing requests
-func FileHandler(c *fiber.Ctx) error {
-	return handleFileOperation(c, listFiles)
+func (h *Handlers) FileHandler(c *fiber.Ctx) error {
+	return h.handleFileOperation(c, h.listFiles)
 }
 
 // DeleteHandler handles file deletion requests
-func DeleteHandler(c *fiber.Ctx) error {
-	return handleFileOperation(c, deleteFile)
+func (h *Handlers) DeleteHandler(c *fiber.Ctx) error {
+	return h.handleFileOperation(c, h.deleteFile)
 }
 
 // DownloadHandler handles file download requests
-func DownloadHandler(c *fiber.Ctx) error {
-	return handleFileOperation(c, downloadFile)
+func (h *Handlers) DownloadHandler(c *fiber.Ctx) error {
+	return h.handleFileOperation(c, h.downloadFile)
 }
 
 // RenameHandler handles file renaming requests
-func RenameHandler(c *fiber.Ctx) error {
-	return handleFileOperation(c, renameFile)
+func (h *Handlers) RenameHandler(c *fiber.Ctx) error {
+	return h.handleFileOperation(c, h.renameFile)
 }
 
 // UploadFileHandler handles file upload requests
-func UploadFileHandler(c *fiber.Ctx) error {
-	return handleFileOperation(c, uploadFile)
+func (h *Handlers) UploadFileHandler(c *fiber.Ctx) error {
+	return h.handleFileOperation(c, h.uploadFile)
 }
 
 // ViewHandler handles requests to view file content
-func ViewHandler(c *fiber.Ctx) error {
-	return handleFileOperation(c, viewFile)
+func (h *Handlers) ViewHandler(c *fiber.Ctx) error {
+	return h.handleFileOperation(c, h.viewFile)
 }
 
 // SaveHandler handles requests to save file content
-func SaveHandler(c *fiber.Ctx) error {
-	return handleFileOperation(c, saveFile)
+func (h *Handlers) SaveHandler(c *fiber.Ctx) error {
+	return h.handleFileOperation(c, h.saveFile)
 }
 
 // MakeNewHandler handles requests to create new files or directories
-func MakeNewHandler(c *fiber.Ctx) error {
-	return handleFileOperation(c, makeNew)
+func (h *Handlers) MakeNewHandler(c *fiber.Ctx) error {
+	return h.handleFileOperation(c, h.makeNew)
 }
 
 // FileOperation represents a function that performs a file operation
 type FileOperation func(*fiber.Ctx) error
 
 // handleFileOperation is a generic handler for file operations
-func handleFileOperation(c *fiber.Ctx, operation FileOperation) error {
+func (h *Handlers) handleFileOperation(c *fiber.Ctx, operation FileOperation) error {
 	if err := operation(c); err != nil {
 		status, message := parseError(err)
 		return respondWithError(c, status, message)
@@ -70,8 +88,8 @@ func handleFileOperation(c *fiber.Ctx, operation FileOperation) error {
 }
 
 // listFiles handles listing files in a directory
-func listFiles(c *fiber.Ctx) error {
-	currentPath, err := file.GetDirectoryPath(c)
+func (h *Handlers) listFiles(c *fiber.Ctx) error {
+	currentPath, err := h.FileManager.GetDirectoryPath(c)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Failed to get directory path: "+err.Error())
 	}
@@ -80,12 +98,7 @@ func listFiles(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid path")
 	}
 
-	files, err := os.ReadDir(currentPath)
-	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "Failed to read directory: "+err.Error())
-	}
-
-	fileInfos, err := file.PrepareFileInfo(files, currentPath)
+	fileInfos, err := h.FileManager.ListDirectory(currentPath)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to get file info: "+err.Error())
 	}
@@ -103,7 +116,7 @@ func listFiles(c *fiber.Ctx) error {
 }
 
 // deleteFile handles file deletion
-func deleteFile(c *fiber.Ctx) error {
+func (h *Handlers) deleteFile(c *fiber.Ctx) error {
 	var payload struct {
 		Path string `json:"path"`
 	}
@@ -116,18 +129,18 @@ func deleteFile(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid path")
 	}
 
-	if err := os.RemoveAll(payload.Path); err != nil {
+	if err := h.FileManager.DeleteFile(payload.Path); err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to delete file: "+err.Error())
 	}
 
-	log.Info().Str("path", payload.Path).Msg("File deleted successfully")
+	h.Logger.Info("File deleted successfully", "path", payload.Path)
 	return models.RespondWithJSON(c, fiber.StatusOK, models.Response{
 		Message: "File deleted successfully",
 	})
 }
 
 // downloadFile handles file download
-func downloadFile(c *fiber.Ctx) error {
+func (h *Handlers) downloadFile(c *fiber.Ctx) error {
 	fileParam := c.Query("file")
 	if fileParam == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "File parameter is required")
@@ -146,7 +159,7 @@ func downloadFile(c *fiber.Ctx) error {
 }
 
 // renameFile handles file renaming
-func renameFile(c *fiber.Ctx) error {
+func (h *Handlers) renameFile(c *fiber.Ctx) error {
 	var payload struct {
 		OldPath string `json:"oldPath"`
 		NewName string `json:"newName"`
@@ -163,7 +176,7 @@ func renameFile(c *fiber.Ctx) error {
 
 	newPath := filepath.Join(filepath.Dir(oldFilePath), payload.NewName)
 
-	if err := os.Rename(oldFilePath, newPath); err != nil {
+	if err := h.FileManager.RenameFile(oldFilePath, newPath); err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to rename file: "+err.Error())
 	}
 
@@ -173,10 +186,14 @@ func renameFile(c *fiber.Ctx) error {
 }
 
 // uploadFile handles file upload
-func uploadFile(c *fiber.Ctx) error {
+func (h *Handlers) uploadFile(c *fiber.Ctx) error {
 	file, err := c.FormFile("file")
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Unable to retrieve file: "+err.Error())
+	}
+
+	if file.Size > h.Config.Files.MaxFileSize {
+		return fiber.NewError(fiber.StatusBadRequest, "File size exceeds the maximum allowed size")
 	}
 
 	destPath := c.FormValue("path")
@@ -203,7 +220,7 @@ type FileContentRequest struct {
 }
 
 // viewFile handles viewing file content
-func viewFile(c *fiber.Ctx) error {
+func (h *Handlers) viewFile(c *fiber.Ctx) error {
 	fileName := c.Query("filepath")
 	if fileName == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "File path is required")
@@ -231,7 +248,7 @@ func viewFile(c *fiber.Ctx) error {
 }
 
 // saveFile handles saving file content
-func saveFile(c *fiber.Ctx) error {
+func (h *Handlers) saveFile(c *fiber.Ctx) error {
 	var req FileContentRequest
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid request payload: "+err.Error())
@@ -250,7 +267,7 @@ func saveFile(c *fiber.Ctx) error {
 }
 
 // makeNew handles creating new files or directories
-func makeNew(c *fiber.Ctx) error {
+func (h *Handlers) makeNew(c *fiber.Ctx) error {
 	creationType := c.Query("type")
 	currentPath := c.Query("currentPath")
 	name := c.Query("name")
@@ -305,6 +322,5 @@ func parseError(err error) (int, string) {
 
 // respondWithError is a helper function to respond with an error
 func respondWithError(c *fiber.Ctx, status int, message string) error {
-	log.Error().Int("status", status).Msg(message)
 	return models.RespondWithError(c, status, message)
 }

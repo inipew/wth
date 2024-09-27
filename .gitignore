@@ -6,3 +6,6 @@ config*.json
 *pew*.json
 tests
 test
+/files/files
+/files/filess
+*.log

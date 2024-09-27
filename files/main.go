@@ -16,67 +16,75 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
-	"github.com/rs/zerolog/log"
 )
 
 //go:embed frontend/dist/*
 var embeddedFiles embed.FS
 
+var log *logger.Logger
+
 func main() {
 	if err := run(); err != nil {
-		log.Fatal().Err(err).Msg("Application failed to start")
+		log.Fatal("Application failed to start", "error", err)
 	}
 }
 
 func run() error {
-	if err := logger.InitLogger(); err != nil {
-		return err
-	}
+	// Initialize logger
+	logConfig := logger.DefaultConfig()
+	logConfig.Level = logger.Debug
+	logConfig.UseJSON = false
+	log = logger.New(logConfig)
+
+	log.Info("Initializing application")
 
 	cfg, err := config.Load("config.ini")
 	if err != nil {
 		return err
 	}
 
-	app := createFiberApp()
+	app := createFiberApp(cfg)
 
-	setupMiddleware(app)
-	defineAPIRoutes(app)
+	setupMiddleware(app,log)
+	handlers := handlers.NewHandlers(cfg, log)
+	defineAPIRoutes(app, handlers)
 	setupStaticFileServing(app, cfg.Server.UseEmbeddedFiles)
 
 	return startServer(app, cfg.Server.Port)
 }
 
-func createFiberApp() *fiber.App {
+func createFiberApp(cfg *config.Config) *fiber.App {
 	return fiber.New(fiber.Config{
 		ErrorHandler:                 errorHandler,
 		DisablePreParseMultipartForm: true,
 		StreamRequestBody:            true,
+		ReadTimeout:                  time.Duration(cfg.Server.ReadTimeout) * time.Second,
+		WriteTimeout:                 time.Duration(cfg.Server.WriteTimeout) * time.Second,
 	})
 }
 
-func setupMiddleware(app *fiber.App) {
+func setupMiddleware(app *fiber.App, log *logger.Logger) {
 	middleware.SetupCORS(app)
 	middleware.SetupCompression(app)
-	app.Use(middleware.RequestLogger())
+	app.Use(middleware.RequestLogger(log))
 }
 
-func defineAPIRoutes(app *fiber.App) {
+func defineAPIRoutes(app *fiber.App, h *handlers.Handlers) {
 	api := app.Group("/api")
 	files := api.Group("/files")
 
-	files.Get("/", handlers.FileHandler)
-	files.Post("/", handlers.FileHandler)
-	files.Post("/rename", handlers.RenameHandler)
-	files.Delete("/delete", handlers.DeleteHandler)
-	files.Get("/view_archive", handlers.ArchiveHandler)
-	files.Post("/upload", handlers.UploadFileHandler)
-	files.Get("/view", handlers.ViewHandler)
-	files.Post("/save", handlers.SaveHandler)
-	files.Put("/permissions", handlers.UpdatePermissionsHandler)
-	files.Get("/download", handlers.DownloadHandler)
-	files.Get("/extract", handlers.UnzipHandler)
-	files.Get("/make", handlers.MakeNewHandler)
+	files.Get("/", h.FileHandler)
+	files.Post("/", h.FileHandler)
+	files.Post("/rename", h.RenameHandler)
+	files.Delete("/delete", h.DeleteHandler)
+	files.Get("/view_archive", h.ArchiveHandler)
+	files.Post("/upload", h.UploadFileHandler)
+	files.Get("/view", h.ViewHandler)
+	files.Post("/save", h.SaveHandler)
+	files.Put("/permissions", h.UpdatePermissionsHandler)
+	files.Get("/download", h.DownloadHandler)
+	files.Get("/extract", h.ExtractorHandler)
+	files.Get("/make", h.MakeNewHandler)
 }
 
 func setupStaticFileServing(app *fiber.App, useEmbeddedFiles bool) {
@@ -125,11 +133,11 @@ func serveDevelopmentSPA(c *fiber.Ctx) error {
 }
 
 func startServer(app *fiber.App, port string) error {
-	log.Info().Str("port", port).Msg("Server is listening on port")
+	log.Info("Server is listening on", "port", port)
 	return app.Listen(port)
 }
 
 func errorHandler(c *fiber.Ctx, err error) error {
-	log.Error().Err(err).Msg("Internal server error")
+	log.Error("Internal server error", err)
 	return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 }

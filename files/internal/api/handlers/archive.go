@@ -10,7 +10,17 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func ArchiveHandler(c *fiber.Ctx) error {
+// ArchiveHandler handles view archive file
+func (h *Handlers) ArchiveHandler(c *fiber.Ctx) error {
+	return h.handleFileOperation(c, h.viewHandler)
+}
+
+// ArchiveHandler handles view archive file
+func (h *Handlers) ExtractorHandler(c *fiber.Ctx) error {
+	return h.handleFileOperation(c, h.unzipHandler)
+}
+
+func (h *Handlers) viewHandler(c *fiber.Ctx) error {
 	archivePath := c.Query("path")
 	if archivePath == "" {
 		return models.RespondWithError(c, fiber.StatusBadRequest, "Missing 'path' query parameter")
@@ -31,7 +41,7 @@ func ArchiveHandler(c *fiber.Ctx) error {
 }
 
 // UnzipHandler handles the extraction of various archive formats
-func UnzipHandler(c *fiber.Ctx) error {
+func (h *Handlers) unzipHandler(c *fiber.Ctx) error {
 	filePath, err := archive.GetAndValidateFilePath(c.Query("file"))
 	if err != nil {
 		return models.RespondWithError(c, fiber.StatusBadRequest, err.Error())

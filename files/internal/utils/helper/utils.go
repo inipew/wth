@@ -18,6 +18,20 @@ func FormatFileSize(info os.FileInfo, file os.DirEntry) string {
 	return size.String()
 }
 
+func IsAllowedFileType(filename string, allowedTypes []string) bool {
+	if len(allowedTypes) == 0 {
+		return true // If no types are specified, all types are allowed
+	}
+
+	ext := strings.ToLower(filepath.Ext(filename))
+	for _, allowedType := range allowedTypes {
+		if strings.ToLower(allowedType) == ext {
+			return true
+		}
+	}
+	return false
+}
+
 func IsText(filename string) bool {
 	// Periksa apakah path adalah direktori
 	fileInfo, err := os.Stat(filename)

@@ -11,12 +11,12 @@ import (
 )
 
 // UpdatePermissionsHandler handles updating file permissions
-func UpdatePermissionsHandler(c *fiber.Ctx) error {
-	return handleFileOperation(c, updatePermissions)
+func (h *Handlers) UpdatePermissionsHandler(c *fiber.Ctx) error {
+	return h.handleFileOperation(c, h.updatePermissions)
 }
 
 // updatePermissions is the core function to update file permissions
-func updatePermissions(c *fiber.Ctx) error {
+func (h *Handlers) updatePermissions(c *fiber.Ctx) error {
 	var payload struct {
 		Path        string `json:"path"`
 		Permissions string `json:"permissions"`

@@ -27,10 +27,10 @@ type ServerConfig struct {
 
 // FilesConfig holds file-related configuration
 type FilesConfig struct {
-	StorageDir     string
-	AllowedTypes   []string
-	MaxFileSize    int64
-	ArchiveEnabled bool
+	StorageDir     	string
+	ShowHiddenFiles	bool
+	MaxFileSize    	int64
+	ArchiveEnabled 	bool
 }
 
 // Load reads the configuration file and returns a Config struct
@@ -94,10 +94,6 @@ func (c *Config) setDefaults() {
 
 	if c.Server.GracefulShutdown == 0 {
 		c.Server.GracefulShutdown = 15 // 15 seconds
-	}
-
-	if len(c.Files.AllowedTypes) == 0 {
-		c.Files.AllowedTypes = []string{".txt", ".pdf", ".doc", ".docx", ".xls", ".xlsx"}
 	}
 
 	if c.Files.MaxFileSize == 0 {
