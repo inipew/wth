@@ -2,20 +2,25 @@ package config
 
 import (
 	"bytes"
+	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"text/template"
 
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 	"gopkg.in/ini.v1"
 )
 
+// ConfigProvider defines the interface for loading configuration
+type ConfigProvider interface {
+	Load(ctx context.Context) (*Config, error)
+}
+
 // Config structure
 type Config struct {
-	WebConf   WebConf
-	Paths     map[string]string
-	Commands  []Command
+	WebConf  WebConf
+	Paths    map[string]string
+	Commands []Command
 }
 
 // WebConf structure
@@ -32,133 +37,141 @@ type Command struct {
 	Description string
 }
 
-var (
-	ConfigData    Config
-	ConfigMutex   sync.RWMutex
-	ConfigCache   *Config
-)
-
-// Load configuration from file with mutex protection
-func LoadConfig(configFilePath string) error {
-	ConfigMutex.Lock()
-	defer ConfigMutex.Unlock()
-
-	// If config is already loaded, skip reloading
-	if ConfigCache != nil {
-		return nil
-	}
-
-	cfg, err := ini.Load(configFilePath)
-	if err != nil {
-		return err
-	}
-
-	ConfigData.WebConf = WebConf{
-		Port:        cfg.Section("webconf").Key("port").String(),
-		RestrictDir: cfg.Section("webconf").Key("restrictDir").MustBool(false),
-	}
-
-	// Initialize Paths map
-	ConfigData.Paths = make(map[string]string)
-	if err := parsePaths(cfg, &ConfigData); err != nil {
-		return err
-	}
-
-	// Initialize Commands slice
-	ConfigData.Commands = nil
-	if err := parseCommands(cfg, &ConfigData); err != nil {
-		return err
-	}
-
-	// Cache the loaded configuration
-	ConfigCache = &ConfigData
-
-	return nil
+// FileConfigProvider implements ConfigProvider for INI files
+type FileConfigProvider struct {
+	FilePath string
+	logger   zerolog.Logger
 }
 
-// parsePaths parses the [paths] section from the INI file and populates the Paths map.
-func parsePaths(cfg *ini.File, config *Config) error {
-	pathsSection := cfg.Section("paths")
-	if pathsSection == nil {
-		return fmt.Errorf("bagian [paths] tidak ditemukan di file INI")
+// NewFileConfigProvider creates a new FileConfigProvider
+func NewFileConfigProvider(filePath string, logger zerolog.Logger) *FileConfigProvider {
+	return &FileConfigProvider{
+		FilePath: filePath,
+		logger:   logger,
+	}
+}
+
+// Load implements ConfigProvider.Load for INI files
+func (fcp *FileConfigProvider) Load(ctx context.Context) (*Config, error) {
+	cfg, err := ini.LoadSources(ini.LoadOptions{AllowBooleanKeys: true}, fcp.FilePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config file: %w", err)
 	}
 
+	config := &Config{
+		WebConf: WebConf{
+			Port:        cfg.Section("webconf").Key("port").MustString(":8080"),
+			RestrictDir: cfg.Section("webconf").Key("restrictDir").MustBool(false),
+		},
+		Paths:    make(map[string]string),
+		Commands: []Command{},
+	}
+
+	if err := parsePaths(cfg, config); err != nil {
+		return nil, fmt.Errorf("failed to parse paths: %w", err)
+	}
+
+	if err := parseCommands(cfg, config); err != nil {
+		return nil, fmt.Errorf("failed to parse commands: %w", err)
+	}
+
+	return config, nil
+}
+
+func parsePaths(cfg *ini.File, config *Config) error {
+	pathsSection := cfg.Section("paths")
 	for _, key := range pathsSection.Keys() {
 		if key.Name() != "" && key.String() != "" {
 			config.Paths[key.Name()] = key.String()
 		} else {
-			return fmt.Errorf("entri path tidak valid di bagian [paths]: kunci=%s, nilai=%s", key.Name(), key.String())
+			return fmt.Errorf("invalid path entry in [paths] section: key=%s, value=%s", key.Name(), key.String())
 		}
 	}
-
 	return nil
 }
 
-// parseCommands parses the [commands] section from the INI file and populates the Commands slice.
 func parseCommands(cfg *ini.File, config *Config) error {
 	commandsSection := cfg.Section("commands")
-	if commandsSection == nil {
-		return fmt.Errorf("bagian [commands] tidak ditemukan di file INI")
-	}
-
-	var commandNames []string
-
 	for _, key := range commandsSection.Keys() {
-		if strings.HasSuffix(key.Name(), "Name") {
-			commandName := strings.TrimSuffix(key.Name(), "Name")
-			if !contains(commandNames, commandName) {
-				command := Command{
-					Name:        commandsSection.Key(commandName + "Name").String(),
-					Value:       commandsSection.Key(commandName + "Value").String(),
-					Command:     ReplacePlaceholders(commandsSection.Key(commandName + "Command").String(), config.Paths),
-					Description: commandsSection.Key(commandName + "Description").String(),
-				}
-				if command.Name == "" || command.Command == "" {
-					return fmt.Errorf("entri perintah tidak valid untuk: %s", commandName)
-				}
-				config.Commands = append(config.Commands, command)
-				commandNames = append(commandNames, commandName)
-			}
+		if key.Name() == "" || len(key.Name()) < 4 || key.Name()[len(key.Name())-4:] != "Name" {
+			continue
 		}
+		
+		baseName := key.Name()[:len(key.Name())-4]
+		command := Command{
+			Name:        key.String(),
+			Value:       commandsSection.Key(baseName + "Value").String(),
+			Command:     replacePlaceholders(commandsSection.Key(baseName + "Command").String(), config.Paths),
+			Description: commandsSection.Key(baseName + "Description").String(),
+		}
+		
+		if command.Name == "" || command.Value == "" || command.Command == "" {
+			return fmt.Errorf("invalid command entry for: %s", baseName)
+		}
+		
+		config.Commands = append(config.Commands, command)
 	}
-
 	return nil
 }
 
-// ReplacePlaceholders replaces placeholders in the command string with actual values from the paths map.
-func ReplacePlaceholders(command string, paths map[string]string) string {
+func replacePlaceholders(command string, paths map[string]string) string {
 	tmpl, err := template.New("command").Parse(command)
 	if err != nil {
-		log.Logger.Error().Str("command", command).Err(err).Msg("Error parsing template")
 		return command
 	}
 
 	var buf bytes.Buffer
 	err = tmpl.Execute(&buf, paths)
 	if err != nil {
-		log.Logger.Error().Str("command", command).Err(err).Msg("Error executing template")
 		return command
 	}
 
 	return buf.String()
 }
 
-// contains checks if a slice contains a specific string.
-func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
+// ConfigManager manages the configuration
+type ConfigManager struct {
+	provider ConfigProvider
+	config   *Config
+	mu       sync.RWMutex
+	logger   zerolog.Logger
 }
 
-// FindCommandByValue finds a command by its value.
-func FindCommandByValue(value string) (*Command, error) {
-	ConfigMutex.RLock()
-	defer ConfigMutex.RUnlock()
+// NewConfigManager creates a new ConfigManager
+func NewConfigManager(provider ConfigProvider, logger zerolog.Logger) *ConfigManager {
+	return &ConfigManager{
+		provider: provider,
+		logger:   logger,
+	}
+}
 
-	for _, cmd := range ConfigData.Commands {
+// Load loads the configuration
+func (cm *ConfigManager) Load(ctx context.Context) error {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	config, err := cm.provider.Load(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to load configuration: %w", err)
+	}
+
+	cm.config = config
+	return nil
+}
+
+// GetConfig returns the current configuration
+func (cm *ConfigManager) GetConfig() *Config {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	return cm.config
+}
+
+// FindCommandByValue finds a command by its value
+func (cm *ConfigManager) FindCommandByValue(value string) (*Command, error) {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+
+	for _, cmd := range cm.config.Commands {
 		if cmd.Value == value {
 			return &cmd, nil
 		}
@@ -167,27 +180,15 @@ func FindCommandByValue(value string) (*Command, error) {
 	return nil, fmt.Errorf("command with value %s not found", value)
 }
 
-// PrintConfig prints the current configuration.
-func PrintConfig() {
-	ConfigMutex.RLock()
-	defer ConfigMutex.RUnlock()
+// LogConfig logs the current configuration
+func (cm *ConfigManager) LogConfig() {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
 
-	fmt.Println("\n=== Configuration Loaded ===")
-	fmt.Printf("WebConf:\n")
-	fmt.Printf("  Port: %s\n", ConfigData.WebConf.Port)
-	fmt.Printf("  RestrictDir: %v\n", ConfigData.WebConf.RestrictDir)
-
-	fmt.Printf("\nPaths:\n")
-	for key, value := range ConfigData.Paths {
-		fmt.Printf("  %s: %s\n", key, value)
-	}
-
-	fmt.Printf("\nCommands:\n")
-	for _, cmd := range ConfigData.Commands {
-		fmt.Printf("  %s:\n", cmd.Value)
-		fmt.Printf("    Name: %s\n", cmd.Name)
-		fmt.Printf("    Value: %s\n", cmd.Value)
-		fmt.Printf("    Command: %s\n", cmd.Command)
-		fmt.Printf("    Description: %s\n", cmd.Description)
-	}
+	cm.logger.Info().
+		Str("port", cm.config.WebConf.Port).
+		Bool("restrictDir", cm.config.WebConf.RestrictDir).
+		Interface("paths", cm.config.Paths).
+		Interface("commands", cm.config.Commands).
+		Msg("Configuration loaded")
 }

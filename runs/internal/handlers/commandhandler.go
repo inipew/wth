@@ -3,7 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
-	cfg "runs/internal/config"
+	"runs/internal/config"
 	"runs/internal/models"
 	"runs/internal/utils"
 	"time"
@@ -15,8 +15,20 @@ import (
 
 const defaultTimeout = 10 * time.Second
 
+// Handler struct holds dependencies for the handlers
+type Handler struct {
+	configManager *config.ConfigManager
+}
+
+// NewHandler creates a new Handler instance
+func NewHandler(cm *config.ConfigManager) *Handler {
+	return &Handler{
+		configManager: cm,
+	}
+}
+
 // CommandHandler handles the command execution
-func CommandHandler(c *fiber.Ctx) error {
+func (h *Handler) CommandHandler(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(c.Context(), defaultTimeout)
 	defer cancel()
 
@@ -25,14 +37,14 @@ func CommandHandler(c *fiber.Ctx) error {
 		return handleError(c, fiber.StatusBadRequest, "Missing 'value' parameter")
 	}
 
-	command, err := processCommand(c, value)
+	command, err := h.processCommand(c, value)
 	if err != nil {
 		return handleError(c, fiber.StatusBadRequest, err.Error())
 	}
 
 	output, err := utils.RunCommand(ctx, command.Command, defaultTimeout)
 	if err != nil {
-		log.Logger.Error().Str("command", command.Command).Err(err).Msg("Failed to execute command")
+		log.Error().Str("command", command.Command).Err(err).Msg("Failed to execute command")
 		return handleError(c, fiber.StatusInternalServerError, fmt.Sprintf("Failed to execute command '%s': %v", command.Command, err))
 	}
 
@@ -40,25 +52,27 @@ func CommandHandler(c *fiber.Ctx) error {
 }
 
 // processCommand processes the command based on the given value
-func processCommand(c *fiber.Ctx, value string) (*cfg.Command, error) {
+func (h *Handler) processCommand(c *fiber.Ctx, value string) (*config.Command, error) {
 	if value == "custom" {
 		customCommand := c.FormValue("custom_command")
 		if customCommand == "" {
 			return nil, fmt.Errorf("missing 'custom_command' parameter")
 		}
-		return &cfg.Command{Command: customCommand}, nil
+		return &config.Command{Command: customCommand}, nil
 	}
-	command, err := cfg.FindCommandByValue(value)
+
+	command, err := h.configManager.FindCommandByValue(value)
 	if err != nil {
 		return nil, fmt.Errorf("command with Value '%s' not found", value)
 	}
-	command.Command = cfg.ReplacePlaceholders(command.Command, nil)
+
+	// The command is already processed by the config package, so we don't need to replace placeholders here
 	return command, nil
 }
 
 // handleError logs and responds with an error message
 func handleError(c *fiber.Ctx, status int, message string) error {
-	log.Logger.Error().Str("status", fmt.Sprintf("%d", status)).Msg(message)
+	log.Error().Int("status", status).Msg(message)
 	return respondWithError(c, status, message)
 }
 
@@ -66,7 +80,7 @@ func handleError(c *fiber.Ctx, status int, message string) error {
 func respondWithJSON(c *fiber.Ctx, status int, payload any) error {
 	data, err := sonic.Marshal(payload)
 	if err != nil {
-		log.Logger.Error().Err(err).Msg("Error generating JSON response")
+		log.Error().Err(err).Msg("Error generating JSON response")
 		return respondWithError(c, fiber.StatusInternalServerError, "Error generating JSON response")
 	}
 	return c.Status(status).Send(data)
@@ -77,7 +91,7 @@ func respondWithError(c *fiber.Ctx, status int, message string) error {
 	response := models.Response{Message: message}
 	data, err := sonic.Marshal(response)
 	if err != nil {
-		log.Logger.Error().Err(err).Msg("Error generating error response")
+		log.Error().Err(err).Msg("Error generating error response")
 		return c.Status(fiber.StatusInternalServerError).SendString("Error generating JSON response")
 	}
 	return c.Status(status).Send(data)
