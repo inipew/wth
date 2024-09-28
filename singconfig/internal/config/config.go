@@ -2,6 +2,8 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"singconfig/internal/config/dns"
 	"singconfig/internal/config/experimental"
@@ -10,7 +12,10 @@ import (
 	"singconfig/internal/config/ntp"
 	"singconfig/internal/config/outbound"
 	"singconfig/internal/config/route"
+	"singconfig/internal/utils"
 	"singconfig/pkg/singbox"
+	"sort"
+	"strings"
 )
 
 func BuildSingBoxConfig() singbox.SingBoxConfig {
@@ -49,16 +54,75 @@ func SaveConfig(config *singbox.SingBoxConfig, filename string) error {
 	return os.WriteFile(filename, data, 0644)
 }
 
-func AddUser(config *singbox.SingBoxConfig, user inbound.UserConfig, addType string, transportType string) {
-	for i := range config.Inbounds {
-		inbound := &config.Inbounds[i]
-		if addType == "all" ||
-			(addType == "type" && inbound.Type == user.Name) ||
-			(addType == "transport" && inbound.Transport != nil && inbound.Transport.Type == transportType) ||
-			(addType == "both" && inbound.Type == user.Name && inbound.Transport != nil && inbound.Transport.Type == transportType) {
-			inbound.Users = append(inbound.Users, user)
-		}
-	}
+// AddUser adds a new user to the SingBox configuration based on specified criteria.
+func AddUser(config *singbox.SingBoxConfig, transportType, userType, name string) error {
+    if config == nil || config.Inbounds == nil {
+        return errors.New("config or Inbounds is nil")
+    }
+
+    for i := range config.Inbounds {
+        if shouldAddUser(&config.Inbounds[i], transportType, userType) {
+            if err := addUserToInbound(&config.Inbounds[i], name); err != nil {
+                return err
+            }
+        }
+    }
+
+    return nil
+}
+
+// shouldAddUser determines if a user should be added to the given inbound configuration.
+func shouldAddUser(inboundConfig *inbound.InboundConfig, transportType, userType string) bool {
+    matchesUserType := userType == "" || userType == "all" || inboundConfig.Type == userType
+
+    // Special handling for socks, which may not have a Transport configuration
+    if inboundConfig.Type == "socks" {
+        return matchesUserType && (transportType == "" || transportType == "all")
+    }
+
+    // For other types, check if Transport exists and matches
+    if inboundConfig.Transport == nil {
+        return false
+    }
+
+    matchesTransport := transportType == "" || transportType == "all" || inboundConfig.Transport.Type == transportType
+
+    return matchesTransport && matchesUserType
+}
+
+// addUserToInbound adds a new user to the inbound configuration.
+func addUserToInbound(inboundConfig *inbound.InboundConfig, name string) error {
+    uuid := utils.GenerateUUID()
+    newUser, err := createNewUser(inboundConfig.Type, name, uuid)
+    if err != nil {
+        return err
+    }
+
+    inboundConfig.Users = append(inboundConfig.Users, newUser)
+    return nil
+}
+
+// createNewUser creates a new user based on the inbound type.
+func createNewUser(inboundType, name, uuid string) (inbound.UserConfig, error) {
+    switch inboundType {
+    case "vmess", "vless":
+        return inbound.UserConfig{
+            Name: name,
+            UUID: uuid,
+        }, nil
+    case "trojan":
+        return inbound.UserConfig{
+            Name:     name,
+            Password: uuid,
+        }, nil
+    case "socks":
+        return inbound.UserConfig{
+            Username: name,
+            Password: uuid,
+        }, nil
+    default:
+        return inbound.UserConfig{}, errors.New("unsupported inbound type")
+    }
 }
 
 func RemoveUser(config *singbox.SingBoxConfig, username string) {
@@ -95,4 +159,68 @@ func formatDNSAddress(address, addressType string) string {
 	default:
 		return address
 	}
+}
+
+// DisplayInboundDetails menampilkan detail dari semua inbound dalam konfigurasi
+func DisplayInboundDetails(config *singbox.SingBoxConfig) {
+	if config == nil || config.Inbounds == nil {
+		fmt.Println("Konfigurasi atau Inbounds tidak tersedia")
+		return
+	}
+
+	inboundTypes := []string{"vmess", "vless", "trojan", "socks"}
+
+	for _, inboundType := range inboundTypes {
+		displayInboundByType(config.Inbounds, inboundType)
+	}
+}
+
+// displayInboundByType menampilkan detail untuk tipe inbound tertentu
+func displayInboundByType(inbounds []inbound.InboundConfig, inboundType string) {
+	fmt.Printf("\n%s\n", strings.ToUpper(inboundType))
+	
+	userMap := make(map[string]map[string]bool)
+
+	for _, inbound := range inbounds {
+		if strings.EqualFold(inbound.Type, inboundType) {
+			for _, user := range inbound.Users {
+				if _, exists := userMap[user.Name]; !exists {
+					userMap[user.Name] = make(map[string]bool)
+				}
+				transportType := getTransportType(inbound.Transport)
+				userMap[user.Name][transportType] = true
+			}
+		}
+	}
+
+	fmt.Printf("Jumlah user: %d\n", len(userMap))
+	if len(userMap) > 0 {
+		fmt.Println("List nama user:")
+		// Sortir nama pengguna untuk output yang konsisten
+		var sortedNames []string
+		for name := range userMap {
+			sortedNames = append(sortedNames, name)
+		}
+		sort.Strings(sortedNames)
+
+		for _, name := range sortedNames {
+			protocols := userMap[name]
+			var protocolList []string
+			for protocol := range protocols {
+				protocolList = append(protocolList, protocol)
+			}
+			sort.Strings(protocolList)
+			fmt.Printf("* %s (%s)\n", name, strings.Join(protocolList, ", "))
+		}
+	} else {
+		fmt.Println("Tidak ada user")
+	}
+}
+
+// getTransportType mengembalikan tipe transport dari konfigurasi transport
+func getTransportType(transport *inbound.TransportConfig) string {
+	if transport == nil {
+		return "default"
+	}
+	return transport.Type
 }
