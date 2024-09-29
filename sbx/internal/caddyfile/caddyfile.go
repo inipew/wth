@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sbx/internal/config"
+	"sbx/internal/logger"
 	"text/template"
-
-	"github.com/rs/zerolog/log"
 )
 
 // Config holds the information needed to generate the Caddyfile
@@ -16,90 +16,33 @@ type Config struct {
 	Domain string
 }
 
-// CaddyfileTemplate defines the template for the Caddyfile
-const CaddyfileTemplate = `
-{
-	log {
-		output file {{ .CaddyLogFile }} {
-			roll_keep 15
-			roll_keep_for 48h
-		}
-		format console
-	}
-	servers {
-		trusted_proxies static {{ .TrustedProxies }}
+// CaddyfileGenerator handles the generation of Caddyfiles
+type CaddyfileGenerator struct {
+	templateContent string
+	config          Config
+}
+
+// NewCaddyfileGenerator creates a new CaddyfileGenerator
+func NewCaddyfileGenerator(templateContent string, config Config) *CaddyfileGenerator {
+	return &CaddyfileGenerator{
+		templateContent: templateContent,
+		config:          config,
 	}
 }
 
-{{ .Domain }}, http://{{ .Domain }} {
-	@websocket {
-		header Connection *Upgrade*
-		header Upgrade websocket
-		header Sec-WebSocket-Key *
-	}
-	@http_upgrade {
-		header Connection *Upgrade*
-		header Upgrade websocket
-		not header Sec-WebSocket-Key *
-	}
-	@grpc {
-		header Content-Type "application/grpc"
-		protocol grpc
-	}
-
-	# Mapping for WebSocket and HTTP Upgrade
-	{{ .WebSocketMap }}
-	{{ .HttpUpgradeMap }}
-
-	handle @websocket {
-		@rewrite_path_websocket {
-			path_regexp ^/.*?/(trojan|vmess|vless)
-		}
-		handle @rewrite_path_websocket {
-			rewrite * /{http.regexp.1}
-		}
-		reverse_proxy {backend}
-	}
-
-	handle @http_upgrade {
-		@rewrite_path_http_upgrade {
-			path_regexp ^/.*?/(trojan|vmess|vless)
-		}
-		handle @rewrite_path_http_upgrade {
-			rewrite * /{http.regexp.1}
-		}
-		reverse_proxy {backend_http_upgrade}
-	}
-
-	handle @grpc {
-		reverse_proxy {backend} {
-			transport http {
-				versions h2c
-			}
-		}
-	}
-
-	header {
-		Cache-Control "public, max-age=3600"
-		X-Content-Type-Options "nosniff"
-		X-Frame-Options "DENY"
-		X-XSS-Protection "1; mode=block"
-	}
-}`
-
-// GenerateCaddyfile generates a Caddyfile based on the provided config
-func GenerateCaddyfile(config Config) (string, error) {
-	if err := validateConfig(config); err != nil {
+// Generate generates a Caddyfile based on the provided config
+func (cg *CaddyfileGenerator) Generate() (string, error) {
+	if err := cg.validateConfig(); err != nil {
 		return "", fmt.Errorf("invalid config: %w", err)
 	}
 
-	tmpl, err := template.New("caddyfile").Parse(CaddyfileTemplate)
+	tmpl, err := template.New("caddyfile").Parse(cg.templateContent)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse template: %w", err)
 	}
 
 	var output bytes.Buffer
-	if err := tmpl.Execute(&output, prepareTemplateData(config)); err != nil {
+	if err := tmpl.Execute(&output, cg.prepareTemplateData()); err != nil {
 		return "", fmt.Errorf("failed to execute template: %w", err)
 	}
 
@@ -107,18 +50,18 @@ func GenerateCaddyfile(config Config) (string, error) {
 }
 
 // validateConfig checks if the domain is valid
-func validateConfig(config Config) error {
-	if config.Domain == "" {
+func (cg *CaddyfileGenerator) validateConfig() error {
+	if cg.config.Domain == "" {
 		return errors.New("domain cannot be empty")
 	}
 	return nil
 }
 
 // prepareTemplateData prepares the data for the template
-func prepareTemplateData(cfg Config) map[string]interface{} {
+func (cg *CaddyfileGenerator) prepareTemplateData() map[string]interface{} {
 	return map[string]interface{}{
-		"Domain":          cfg.Domain,
-		"CaddyLogFile":    config.CaddyLogFile,
+		"Domain":          cg.config.Domain,
+		"CaddyLogFile":    config.CaddyLogFile(),
 		"TrustedProxies":  trustedProxies(),
 		"WebSocketMap":    generateWebSocketMap(),
 		"HttpUpgradeMap":  generateHttpUpgradeMap(),
@@ -166,13 +109,13 @@ func WriteToFile(content, filePath string) error {
 		return fmt.Errorf("failed to write Caddyfile to %s: %w", filePath, err)
 	}
 
-	log.Info().Str("filepath", filePath).Msg("Caddyfile written successfully")
+	logger.GetLogger().Info().Str("filepath", filePath).Msg("Caddyfile written successfully")
 	return nil
 }
 
 // ensureDirectory checks if the directory exists, and creates it if it does not
-func ensureDirectory(filepath string) error {
-	dir := filepath[:len(filepath)-len("Caddyfile")]
+func ensureDirectory(filePath string) error {
+	dir := filepath.Dir(filePath)
 	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
 		return fmt.Errorf("failed to create directory %s: %w", dir, err)
 	}

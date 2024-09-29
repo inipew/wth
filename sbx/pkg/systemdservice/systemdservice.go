@@ -6,10 +6,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	cfg "sbx/internal/config"
+	"sbx/internal/logger"
 	"strings"
 	"text/template"
-
-	"github.com/rs/zerolog/log"
 )
 
 // ServiceConfig stores the configuration for a systemd service.
@@ -52,18 +51,22 @@ AmbientCapabilities={{ join .AmbientCaps " " }}
 WantedBy=multi-user.target
 `
 
-var tmpl *template.Template
+// ServiceManager handles the creation and management of systemd services
+type ServiceManager struct {
+	tmpl *template.Template
+}
 
-func init() {
-	var err error
-	tmpl, err = template.New("service").Funcs(template.FuncMap{"join": strings.Join}).Parse(serviceTemplate)
+// NewServiceManager creates a new ServiceManager
+func NewServiceManager() (*ServiceManager, error) {
+	tmpl, err := template.New("service").Funcs(template.FuncMap{"join": strings.Join}).Parse(serviceTemplate)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to parse service template")
+		return nil, fmt.Errorf("failed to parse service template: %w", err)
 	}
+	return &ServiceManager{tmpl: tmpl}, nil
 }
 
 // CreateServiceFile creates a systemd service file based on the provided configuration.
-func CreateServiceFile(serviceName string, config ServiceConfig) error {
+func (sm *ServiceManager) CreateServiceFile(serviceName string, config ServiceConfig) error {
 	filePath := filepath.Join("/etc/systemd/system", fmt.Sprintf("%s.service", serviceName))
 	file, err := os.Create(filePath)
 	if err != nil {
@@ -71,39 +74,39 @@ func CreateServiceFile(serviceName string, config ServiceConfig) error {
 	}
 	defer file.Close()
 
-	if err := tmpl.Execute(file, config); err != nil {
+	if err := sm.tmpl.Execute(file, config); err != nil {
 		return fmt.Errorf("failed to execute template: %w", err)
 	}
 
-	log.Info().Str("Service", serviceName).Msg("Service file generated successfully")
+	logger.GetLogger().Info().Str("Service", serviceName).Msg("Service file generated successfully")
 	return nil
 }
 
 // GenerateCaddyService generates the caddy.service file.
-func GenerateCaddyService() error {
+func (sm *ServiceManager) GenerateCaddyService() error {
 	config := ServiceConfig{
-		Description:   "Caddy",
-		Documentation: "https://caddyserver.com/docs/",
-		After:         []string{"network.target", "network-online.target"},
-		Requires:      []string{"network-online.target"},
-		ExecStart:     fmt.Sprintf("%s run --environ --config %s", cfg.CaddyBinPath, cfg.CaddyFilePath),
-		ExecReload:    fmt.Sprintf("%s reload --config %s --force", cfg.CaddyBinPath, cfg.CaddyFilePath),
+		Description:    "Caddy",
+		Documentation:  "https://caddyserver.com/docs/",
+		After:          []string{"network.target", "network-online.target"},
+		Requires:       []string{"network-online.target"},
+		ExecStart:      fmt.Sprintf("%s run --environ --config %s", cfg.CaddyBinPath(), cfg.CaddyFilePath()),
+		ExecReload:     fmt.Sprintf("%s reload --config %s --force", cfg.CaddyBinPath(), cfg.CaddyFilePath()),
 		TimeoutStopSec: "5s",
-		LimitNOFILE:   "1048576",
-		PrivateTmp:    true,
-		ProtectSystem: "full",
-		AmbientCaps:   []string{"CAP_NET_ADMIN", "CAP_NET_BIND_SERVICE"},
+		LimitNOFILE:    "1048576",
+		PrivateTmp:     true,
+		ProtectSystem:  "full",
+		AmbientCaps:    []string{"CAP_NET_ADMIN", "CAP_NET_BIND_SERVICE"},
 	}
-	return CreateServiceFile("caddy", config)
+	return sm.CreateServiceFile("caddy", config)
 }
 
 // GenerateSingBoxService generates the sing-box.service file.
-func GenerateSingBoxService() error {
+func (sm *ServiceManager) GenerateSingBoxService() error {
 	config := ServiceConfig{
 		Description:        "sing-box service",
 		Documentation:      "https://sing-box.sagernet.org",
 		After:              []string{"network.target", "nss-lookup.target", "network-online.target"},
-		ExecStart:          fmt.Sprintf("%s -D /var/lib/sing-box -C %s run", cfg.SingboxBinPath, cfg.SingboxConfDir),
+		ExecStart:          fmt.Sprintf("%s -D /var/lib/sing-box -C %s run", cfg.SingboxBinPath(), cfg.SingboxConfDir()),
 		ExecReload:         "/bin/kill -HUP $MAINPID",
 		Restart:            "on-failure",
 		RestartSec:         "10s",
@@ -111,8 +114,11 @@ func GenerateSingBoxService() error {
 		CapabilityBounding: []string{"CAP_NET_ADMIN", "CAP_NET_BIND_SERVICE", "CAP_SYS_PTRACE", "CAP_DAC_READ_SEARCH"},
 		AmbientCaps:        []string{"CAP_NET_ADMIN", "CAP_NET_BIND_SERVICE", "CAP_SYS_PTRACE", "CAP_DAC_READ_SEARCH"},
 	}
-	return CreateServiceFile("sing-box", config)
+	return sm.CreateServiceFile("sing-box", config)
 }
+
+// ServiceOperation defines the type for systemd service operations
+type ServiceOperation func(string) error
 
 // systemctlCommand executes a systemctl command and returns an error if any occurs.
 func systemctlCommand(args ...string) error {
@@ -123,9 +129,6 @@ func systemctlCommand(args ...string) error {
 	}
 	return nil
 }
-
-// ServiceOperation defines the interface for systemd service operations
-type ServiceOperation func(string) error
 
 // EnableService enables a systemd service.
 func EnableService(serviceName string) error {

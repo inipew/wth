@@ -1,4 +1,4 @@
-package commands
+package downloader
 
 import (
 	"context"
@@ -6,11 +6,10 @@ import (
 	"sbx/internal/archive"
 	"sbx/internal/config"
 	"sbx/internal/download"
+	"sbx/internal/fileutils"
 	"sbx/internal/github"
-	"sbx/pkg/systemdservice"
+	"sbx/internal/logger"
 	"time"
-
-	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -18,21 +17,6 @@ const (
 	apiTimeout       = 30 * time.Second
 	downloadTimeout  = 1 * time.Hour
 )
-
-func InstallAll(latestFlag bool) error{
-	if err := PerformDownloadCaddy(latestFlag); err != nil {
-		log.Fatal().Err(err).Msg("Error in download operation")
-	}
-
-	if err := PerformDownloadSing(latestFlag); err != nil {
-		log.Fatal().Err(err).Msg("Error in download operation")
-	}
-
-	if err := createServices(); err != nil {
-		log.Fatal().Err(err).Msg("Error in service creation")
-	}
-	return nil
-}
 
 // performDownloadCaddy handles the download of Caddy
 func PerformDownloadCaddy(preRelease bool) error {
@@ -46,14 +30,13 @@ func PerformDownloadSing(preRelease bool) error {
 
 // performDownload downloads a repository
 func performDownload(repoOwner, repoName string, preRelease bool) error {
-	client := github.NewClient(githubTimeout)
-
+	rm := github.NewReleaseManager(githubTimeout)
 	ctx, cancel := context.WithTimeout(context.Background(), apiTimeout)
 	defer cancel()
 
-	filePath := filepath.Join(config.TmpDir, repoName+".tar.gz")
+	filePath := filepath.Join(config.TmpDir(), repoName + ".tar.gz")
 
-	version, err := client.GetLatestRelease(ctx, repoOwner, repoName, preRelease)
+	version, err := rm.GetLatestRelease(ctx, repoOwner, repoName, preRelease)
 	if err != nil {
 		return err
 	}
@@ -63,7 +46,7 @@ func performDownload(repoOwner, repoName string, preRelease bool) error {
 		return err
 	}
 
-	log.Info().Str("version", version).Str("url", downloadURL).Msg("Download information")
+	logger.GetLogger().Info().Str("version", version).Str("url", downloadURL).Msg("Download information")
 
 	downloadClient := download.NewClient(
 		30*time.Second, // timeout
@@ -80,21 +63,10 @@ func performDownload(repoOwner, repoName string, preRelease bool) error {
 		return err
 	}
 
-	if err := archive.UntarGz(filePath, filepath.Dir(config.CaddyBinPath)); err != nil {
+	if err := archive.UntarGz(filePath, config.BinaryBinPath()); err != nil {
 		return err
 	}
+	fileutils.Remove(filePath)
 
-	return nil
-}
-
-func createServices() error {
-	if err := systemdservice.GenerateCaddyService(); err != nil {
-		return err
-	}
-	if err := systemdservice.GenerateSingBoxService(); err != nil {
-		return err
-	}
-
-	log.Info().Msg("Services generated successfully")
 	return nil
 }

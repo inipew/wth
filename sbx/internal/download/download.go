@@ -17,7 +17,7 @@ import (
 )
 
 // Client is a wrapper around http.Client that provides configurable download capabilities.
-type Client struct {
+type DownloadClient struct {
 	HTTPClient       *http.Client
 	RetryCount       int
 	RetryDelay       time.Duration
@@ -26,8 +26,8 @@ type Client struct {
 }
 
 // NewClient creates a new Client with customizable settings.
-func NewClient(timeout time.Duration, retryCount int, retryDelay time.Duration, concurrentChunks int, chunkSize int64) *Client {
-	return &Client{
+func NewClient(timeout time.Duration, retryCount int, retryDelay time.Duration, concurrentChunks int, chunkSize int64) *DownloadClient {
+	return &DownloadClient{
 		HTTPClient: &http.Client{
 			Timeout: timeout,
 		},
@@ -72,7 +72,7 @@ func (p *ProgressBar) Add(n int64) {
 }
 
 // DownloadFile downloads a file from the given URL to the specified filepath, with retry and concurrent chunk logic.
-func (c *Client) DownloadFile(ctx context.Context, url, filePath string) error {
+func (c *DownloadClient) DownloadFile(ctx context.Context, url, filePath string) error {
 	if err := ensureDir(filepath.Dir(filePath)); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
@@ -106,7 +106,7 @@ func (c *Client) DownloadFile(ctx context.Context, url, filePath string) error {
 	return c.mergeChunks(tempDir, filePath, len(chunks))
 }
 
-func (c *Client) calculateChunks(fileSize int64) []struct{ Start, End int64 } {
+func (c *DownloadClient) calculateChunks(fileSize int64) []struct{ Start, End int64 } {
 	chunks := make([]struct{ Start, End int64 }, 0)
 	for start := int64(0); start < fileSize; start += c.ChunkSize {
 		end := start + c.ChunkSize - 1
@@ -118,7 +118,7 @@ func (c *Client) calculateChunks(fileSize int64) []struct{ Start, End int64 } {
 	return chunks
 }
 
-func (c *Client) downloadChunk(ctx context.Context, url, tempDir string, index int, chunk struct{ Start, End int64 }, progress *ProgressBar) error {
+func (c *DownloadClient) downloadChunk(ctx context.Context, url, tempDir string, index int, chunk struct{ Start, End int64 }, progress *ProgressBar) error {
 	chunkPath := filepath.Join(tempDir, fmt.Sprintf("chunk_%d", index))
 	for attempt := 1; attempt <= c.RetryCount; attempt++ {
 		err := c.tryDownloadChunk(ctx, url, chunkPath, chunk, progress)
@@ -133,7 +133,7 @@ func (c *Client) downloadChunk(ctx context.Context, url, tempDir string, index i
 	return nil
 }
 
-func (c *Client) tryDownloadChunk(ctx context.Context, url, chunkPath string, chunk struct{ Start, End int64 }, progress *ProgressBar) error {
+func (c *DownloadClient) tryDownloadChunk(ctx context.Context, url, chunkPath string, chunk struct{ Start, End int64 }, progress *ProgressBar) error {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return fmt.Errorf("error creating request: %w", err)
@@ -168,7 +168,7 @@ func (c *Client) tryDownloadChunk(ctx context.Context, url, chunkPath string, ch
 	return nil
 }
 
-func (c *Client) mergeChunks(tempDir, filePath string, numChunks int) error {
+func (c *DownloadClient) mergeChunks(tempDir, filePath string, numChunks int) error {
 	out, err := os.Create(filePath)
 	if err != nil {
 		return fmt.Errorf("error creating output file: %w", err)
@@ -191,7 +191,7 @@ func (c *Client) mergeChunks(tempDir, filePath string, numChunks int) error {
 	return nil
 }
 
-func (c *Client) getFileSize(ctx context.Context, url string) (int64, error) {
+func (c *DownloadClient) getFileSize(ctx context.Context, url string) (int64, error) {
 	req, err := http.NewRequestWithContext(ctx, "HEAD", url, nil)
 	if err != nil {
 		return 0, err

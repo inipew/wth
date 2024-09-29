@@ -11,32 +11,31 @@ import (
 	"github.com/google/go-github/v63/github"
 )
 
-// Client wraps the GitHub client to provide custom configurations.
-type Client struct {
-	githubClient *github.Client
+// ReleaseManager handles operations related to GitHub releases.
+type ReleaseManager struct {
+	client *github.Client
 }
 
-// NewClient creates and returns a new GitHub client with the specified timeout.
-func NewClient(timeout time.Duration) *Client {
+// NewReleaseManager creates and returns a new ReleaseManager with the specified timeout.
+func NewReleaseManager(timeout time.Duration) *ReleaseManager {
 	httpClient := &http.Client{
 		Timeout: timeout,
 	}
-	return &Client{
-		githubClient: github.NewClient(httpClient),
+	return &ReleaseManager{
+		client: github.NewClient(httpClient),
 	}
 }
 
 // GetLatestRelease fetches the latest release version from a GitHub repository.
-// preRelease determines whether to fetch pre-releases (true) or stable releases (false).
-func (c *Client) GetLatestRelease(ctx context.Context, repoOwner, repoName string, preRelease bool) (string, error) {
-	releases, err := c.fetchReleases(ctx, repoOwner, repoName)
+func (rm *ReleaseManager) GetLatestRelease(ctx context.Context, repoOwner, repoName string, releaseType bool) (string, error) {
+	releases, err := rm.fetchReleases(ctx, repoOwner, repoName)
 	if err != nil {
 		return "", err
 	}
 
-	filteredReleases := filterReleases(releases, preRelease)
+	filteredReleases := rm.filterReleases(releases, releaseType)
 	if len(filteredReleases) == 0 {
-		return "", c.noReleasesError(repoOwner, repoName, preRelease)
+		return "", rm.noReleasesError(repoOwner, repoName, releaseType)
 	}
 
 	latestRelease := filteredReleases[0]
@@ -44,8 +43,8 @@ func (c *Client) GetLatestRelease(ctx context.Context, repoOwner, repoName strin
 }
 
 // fetchReleases retrieves the releases from the specified GitHub repository.
-func (c *Client) fetchReleases(ctx context.Context, repoOwner, repoName string) ([]*github.RepositoryRelease, error) {
-	releases, _, err := c.githubClient.Repositories.ListReleases(ctx, repoOwner, repoName, nil)
+func (rm *ReleaseManager) fetchReleases(ctx context.Context, repoOwner, repoName string) ([]*github.RepositoryRelease, error) {
+	releases, _, err := rm.client.Repositories.ListReleases(ctx, repoOwner, repoName, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving releases for %s/%s: %w", repoOwner, repoName, err)
 	}
@@ -58,22 +57,23 @@ func (c *Client) fetchReleases(ctx context.Context, repoOwner, repoName string) 
 }
 
 // noReleasesError constructs an error message based on the release type.
-func (c *Client) noReleasesError(repoOwner, repoName string, preRelease bool) error {
-	if preRelease {
-		return fmt.Errorf("no pre-releases available for %s/%s", repoOwner, repoName)
+func (rm *ReleaseManager) noReleasesError(repoOwner, repoName string, releaseType bool) error {
+	releaseTypeStr := "stable releases"
+	if releaseType {
+		releaseTypeStr = "pre-releases"
 	}
-	return fmt.Errorf("no stable releases available for %s/%s", repoOwner, repoName)
+	return fmt.Errorf("no %s available for %s/%s", releaseTypeStr, repoOwner, repoName)
 }
 
-// filterReleases filters and sorts releases based on whether they are pre-releases or stable releases.
-func filterReleases(releases []*github.RepositoryRelease, preRelease bool) []*github.RepositoryRelease {
+// filterReleases filters and sorts releases based on the specified release type.
+func (rm *ReleaseManager) filterReleases(releases []*github.RepositoryRelease, releaseType bool) []*github.RepositoryRelease {
 	var filteredReleases []*github.RepositoryRelease
 
 	for _, release := range releases {
 		if release.GetPublishedAt().IsZero() {
 			continue // Skip releases without a published date
 		}
-		if release.GetPrerelease() == preRelease {
+		if (releaseType) == release.GetPrerelease() {
 			filteredReleases = append(filteredReleases, release)
 		}
 	}

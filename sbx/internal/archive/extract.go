@@ -8,8 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sbx/internal/fileutils"
-
-	"github.com/rs/zerolog/log"
+	"sbx/internal/logger"
 )
 
 // UntarGz extracts a TAR.GZ file to the specified destination directory, skipping directories.
@@ -36,7 +35,7 @@ func UntarGz(tgzPath, destDir string) error {
 		return err
 	}
 
-	log.Info().Str("source", tgzPath).Str("destination", destDir).Msg("Successfully extracted archive")
+	logger.GetLogger().Info().Str("source", tgzPath).Str("destination", destDir).Msg("Successfully extracted archive")
 	return nil
 }
 
@@ -58,7 +57,7 @@ func extractFiles(tarReader *tar.Reader, destDir string) error {
 
 		baseName := filepath.Base(header.Name)
 		if baseName == "README.md" || baseName == "LICENSE" {
-			log.Info().Msgf("Skipping file: %s", header.Name)
+			logger.GetLogger().Info().Msgf("Skipping file: %s", header.Name)
 			continue
 		}
 
@@ -86,6 +85,6 @@ func createFile(fPath string, header *tar.Header, tarReader *tar.Reader) error {
 		return fmt.Errorf("failed to copy content to %s: %w", fPath, err)
 	}
 
-	log.Info().Msgf("Successfully extracted file: %s", fPath)
+	logger.GetLogger().Info().Msgf("Successfully extracted file: %s", fPath)
 	return nil
 }
