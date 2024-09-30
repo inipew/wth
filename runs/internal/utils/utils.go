@@ -7,114 +7,88 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
-	"sync"
-	"syscall"
+	"strings"
 	"time"
 
 	"runs/internal/config"
-
-	"github.com/sirupsen/logrus"
+	"runs/internal/logger"
 )
 
+// ErrUnsupportedOS is returned when the operating system is not supported
+var ErrUnsupportedOS = errors.New("unsupported operating system")
+
+// DisplayCommands prints available commands to stdout
 func DisplayCommands(cfg *config.Config) {
+	if cfg == nil {
+		logger.GetLogger().Info().Msg("Error: Configuration is nil")
+		return
+	}
+
 	fmt.Println("Available Commands:")
 	for _, cmd := range cfg.Commands {
-		fmt.Printf("%s - %s\n", cmd.Name, cmd.Description)
+		fmt.Printf("%-15s - %s\n", cmd.Name, cmd.Description)
 	}
 }
 
 // RunCommand executes a command with a timeout and returns the output and any error
 func RunCommand(ctx context.Context, command string, timeout time.Duration) (string, error) {
-	// Set a timeout for the command
+	if ctx == nil {
+		return "", errors.New("context is nil")
+	}
+
+	if command == "" {
+		return "", errors.New("command is empty")
+	}
+
+	if timeout <= 0 {
+		return "", errors.New("timeout must be positive")
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	// Determine the command to run based on the operating system
-	var cmd *exec.Cmd
+	cmd, err := createOSSpecificCommand(ctx, command)
+	if err != nil {
+		return "", fmt.Errorf("failed to create command: %w", err)
+	}
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", handleCommandError(ctx, command, err, output)
+	}
+
+	return strings.TrimSpace(string(output)), nil
+}
+
+func createOSSpecificCommand(ctx context.Context, command string) (*exec.Cmd, error) {
 	switch os := runtime.GOOS; os {
 	case "windows":
-		cmd = exec.CommandContext(ctx, "cmd.exe", "/C", command)
-	case "linux", "darwin", "android":
-		sh := "sh"
-		if os == "android" {
-			sh = "su"
-		}
-		cmd = exec.CommandContext(ctx, sh, "-c", command)
+		return exec.CommandContext(ctx, "cmd.exe", "/C", command), nil
+	case "linux", "darwin":
+		return exec.CommandContext(ctx, "sh", "-c", command), nil
+	case "android":
+		return exec.CommandContext(ctx, "su", "-c", command), nil
 	default:
-		return "", fmt.Errorf("unsupported operating system: %s", os)
+		return nil, fmt.Errorf("%w: %s", ErrUnsupportedOS, os)
 	}
+}
 
-	// Run the command and capture the output
-	output, err := cmd.CombinedOutput()
-	
-	// Check for timeout error
+func handleCommandError(ctx context.Context, command string, err error, output []byte) error {
 	if ctx.Err() == context.DeadlineExceeded {
-		return "", fmt.Errorf("command timed out: %s", command)
+		return fmt.Errorf("command timed out: %s", command)
 	}
 
-	// Handle the different error cases more specifically
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return "", fmt.Errorf("command not found: %s", command)
-		}
-		if errors.Is(err, os.ErrPermission) {
-			return "", fmt.Errorf("permission denied: %s", command)
-		}
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			return "", fmt.Errorf("command exited with code %d: %v", exitErr.ExitCode(), exitErr)
-		}
-		return "", fmt.Errorf("error running command '%s': %v", command, err)
+	if errors.Is(err, exec.ErrNotFound) {
+		return fmt.Errorf("command not found: %s", command)
 	}
 
-	return string(output), nil
-}
-
-func RunCommandDirectly(command string, args []string) error {
-    var execErr error
-    switch runtime.GOOS {
-    case "windows":
-        execErr = syscall.Exec("cmd.exe", append([]string{"/C", command}, args...), os.Environ())
-    case "linux", "darwin", "android":
-        execErr = syscall.Exec("/bin/sh", append([]string{"-c", command}, args...), os.Environ())
-    default:
-        return fmt.Errorf("unsupported operating system: %s", runtime.GOOS)
-    }
-    return execErr
-}
-
-func Worker(ctx context.Context, wg *sync.WaitGroup, taskQueue chan func()) {
-	defer wg.Done()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return // Context is canceled or timed out
-		case task, ok := <-taskQueue:
-			if !ok {
-				return // taskQueue is closed
-			}
-			func() {
-				defer func() {
-					if r := recover(); r != nil {
-						// Handle or log panic
-						logrus.Error("Error panic")
-					}
-				}()
-				task() // Execute the task
-			}()
-		}
+	if errors.Is(err, os.ErrPermission) {
+		return fmt.Errorf("permission denied: %s", command)
 	}
-}
 
-
-func EmptyFile(filePath string) error {
-	// Membuka file dengan mode truncate, yang mengosongkan file
-	file, err := os.OpenFile(filePath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
-	if err != nil {
-		return err
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		return fmt.Errorf("command exited with code %d: %s\nOutput: %s", exitErr.ExitCode(), command, string(output))
 	}
-	defer file.Close()
 
-	// Kembali jika berhasil
-	return nil
+	return fmt.Errorf("error running command '%s': %w\nOutput: %s", command, err, string(output))
 }

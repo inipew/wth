@@ -21,7 +21,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/compress"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 )
 
 const (
@@ -42,20 +42,28 @@ type application struct {
 }
 
 func main() {
-	logger.InitLogger()
+	cfg := logger.DefaultConfig()
+    cfg.LogLevel = zerolog.DebugLevel
+    // cfg.OutputFile = "app.log"
+	cfg.UseColor = true
+
+    err := logger.InitGlobalLogger(cfg)
+    if err != nil {
+        panic(err)
+    }
 
 	app := newApplication()
 	app.run()
 }
 
 func newApplication() *application {
-	configProvider := config.NewFileConfigProvider(configFilePath, log.Logger)
-	configManager := config.NewConfigManager(configProvider, log.Logger)
+	configProvider := config.NewFileConfigProvider(configFilePath, *logger.GetLogger())
+	configManager := config.NewConfigManager(configProvider, *logger.GetLogger())
 
 	if err := configManager.Load(context.Background()); err != nil {
-		log.Fatal().Err(err).Msg("Error loading config")
+		logger.GetLogger().Fatal().Err(err).Msg("Error loading config")
 	}
-	configManager.LogConfig()
+	// configManager.LogConfig()
 
 	fiberApp := fiber.New(fiber.Config{
 		DisablePreParseMultipartForm: true,
@@ -83,18 +91,18 @@ func (a *application) run() {
 	go func() {
 		defer wg.Done()
 		if err := a.setupFileWatcher(ctx); err != nil {
-			log.Fatal().Err(err).Msg("Error setting up file watcher")
+			logger.GetLogger().Fatal().Err(err).Msg("Error setting up file watcher")
 		}
 	}()
 
 	signal.Notify(a.shutdownChan, os.Interrupt)
 	<-a.shutdownChan
 
-	log.Info().Msg("Shutting down gracefully...")
+	logger.GetLogger().Info().Msg("Shutting down gracefully...")
 	cancel()
 	wg.Wait()
 	if err := a.app.Shutdown(); err != nil {
-		log.Error().Err(err).Msg("Error during server shutdown")
+		logger.GetLogger().Error().Err(err).Msg("Error during server shutdown")
 	}
 }
 
@@ -133,9 +141,9 @@ func (a *application) startServer() {
 	if port == "" {
 		port = defaultPort
 	}
-	log.Info().Str("port", port).Msg("Server is listening on port")
+	logger.GetLogger().Info().Str("port", port).Msg("Server is listening on port")
 	if err := a.app.Listen(port); err != nil {
-		log.Fatal().Str("port", port).Err(err).Msg("Error starting server")
+		logger.GetLogger().Fatal().Str("port", port).Err(err).Msg("Error starting server")
 	}
 }
 
@@ -147,30 +155,30 @@ func (a *application) setupFileWatcher(ctx context.Context) error {
 	defer watcher.Close()
 
 	if err := watcher.Add(configFilePath); err != nil {
-		log.Error().Err(err).Msg("Error adding file to watcher")
+		logger.GetLogger().Error().Err(err).Msg("Error adding file to watcher")
 		return fmt.Errorf("adding file to watcher: %w", err)
 	}
 
-	log.Info().Msg("Watching for changes in config file...")
+	logger.GetLogger().Info().Msg("Watching for changes in config file...")
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Info().Msg("File watcher stopped due to context cancellation")
+			logger.GetLogger().Info().Msg("File watcher stopped due to context cancellation")
 			return nil
 		case event, ok := <-watcher.Events:
 			if !ok {
 				return nil
 			}
 			if event.Op&fsnotify.Write == fsnotify.Write {
-				log.Info().Msg("Config file modified; scheduling reload...")
+				logger.GetLogger().Info().Msg("Config file modified; scheduling reload...")
 				a.debounceConfigReload()
 			}
 		case err, ok := <-watcher.Errors:
 			if !ok {
 				return nil
 			}
-			log.Error().Err(err).Msg("Watcher error")
+			logger.GetLogger().Error().Err(err).Msg("Watcher error")
 		}
 	}
 }
@@ -183,11 +191,11 @@ func (a *application) debounceConfigReload() {
 		a.reloadTimer.Stop()
 	}
 	a.reloadTimer = time.AfterFunc(reloadDebounceDuration, func() {
-		log.Info().Msg("Reloading config...")
+		logger.GetLogger().Info().Msg("Reloading config...")
 		if err := a.config.Load(context.Background()); err != nil {
-			log.Warn().Err(err).Msg("Error reloading config")
+			logger.GetLogger().Warn().Err(err).Msg("Error reloading config")
 		} else {
-			log.Info().Str("file", configFilePath).Msg("Config file reloaded")
+			logger.GetLogger().Info().Str("file", configFilePath).Msg("Config file reloaded")
 		}
 	})
 }
@@ -197,7 +205,7 @@ func (a *application) requestLoggerMiddleware() fiber.Handler {
 		start := time.Now()
 		err := c.Next()
 		duration := time.Since(start)
-		log.Info().
+		logger.GetLogger().Info().
 			Str("method", c.Method()).
 			Str("path", c.Path()).
 			Int("status", c.Response().StatusCode()).

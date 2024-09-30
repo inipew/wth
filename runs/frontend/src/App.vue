@@ -44,66 +44,73 @@
 import axios from "axios";
 
 export default {
+  name: 'CommandExecutor',
   data() {
     return {
       commands: [],
       customCommand: "",
       output: "",
-      commandsLoaded: false, // Status loading state
+      isLoading: false,
+      error: null,
     };
+  },
+  computed: {
+    isCustomCommandValid() {
+      return this.customCommand.trim().length > 0;
+    },
   },
   methods: {
     async loadCommands() {
-      if (this.commandsLoaded) return; // Avoid fetching commands again if already loaded
+      if (this.commands.length) return;
+
+      this.isLoading = true;
+      this.error = null;
 
       try {
-        const response = await axios.get("/api/command/list");
-        const data = response.data;
+        const { data } = await axios.get("/api/command/list");
         if (Array.isArray(data)) {
           this.commands = data;
-          this.output = "";
-          this.commandsLoaded = true;
         } else {
-          this.commands = [];
-          this.output = "Kesalahan memuat perintah: Data tidak valid";
+          throw new Error("Data tidak valid");
         }
       } catch (error) {
-        this.handleError("Kesalahan pengambilan:", error);
+        this.handleError("Kesalahan memuat perintah:", error);
+      } finally {
+        this.isLoading = false;
       }
     },
     async executeCommand(cmd) {
-      if (cmd === "custom" && !this.customCommand.trim()) {
+      if (cmd === "custom" && !this.isCustomCommandValid) {
         this.output = "Perintah kustom tidak boleh kosong";
         return;
       }
 
-      const url = `/api/command/execute`;
-      const params = new URLSearchParams();
-      params.append("value", cmd === "custom" ? "custom" : cmd);
+      this.isLoading = true;
+      this.error = null;
+      this.output = "";
 
-      if (cmd === "custom") {
-        params.append("custom_command", this.customCommand);
-      }
+      const url = "/api/command/execute";
+      const params = new URLSearchParams({
+        value: cmd === "custom" ? "custom" : cmd,
+        ...(cmd === "custom" && { custom_command: this.customCommand }),
+      });
 
       try {
-        const response = await axios.post(url, params, {
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
+        const { data } = await axios.post(url, params, {
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
         });
-        this.output = response.data.message;
+        this.output = data.message;
       } catch (error) {
         this.handleError("Kesalahan saat mengeksekusi perintah:", error);
+      } finally {
+        this.isLoading = false;
       }
     },
-    handleError(message, error) {
-      let errorMessage = `${message} ${error.message || "An error occurred"}`;
-      if (error.response) {
-        errorMessage = error.response.data.message || errorMessage;
-      } else if (error.request) {
-        errorMessage = "Tidak ada respons yang diterima dari server.";
-      }
-      this.output = errorMessage;
+    handleError(prefix, error) {
+      console.error(prefix, error);
+      this.error = error.response?.data?.message 
+        || error.message 
+        || "Terjadi kesalahan yang tidak diketahui";
     },
   },
   mounted() {
