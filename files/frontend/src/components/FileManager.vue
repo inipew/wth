@@ -1,213 +1,469 @@
 <template>
-  <div id="app">
-    <h1>File Manager</h1>
-    <div class="navigation" v-if="currentPath !== ''">
-      <button class="btn" @click="navigateTo(previousPath)">Go Up</button>
-      <button class="btn" @click="openUploadModal">Upload File</button>
+  <div class="p-2 sm:p-4">
+    <div class="overflow-x-auto shadow-lg rounded-lg">
+      <table class="w-full table-auto text-xs sm:text-sm md:text-base">
+        <thead class="bg-blue-100 text-blue-700">
+          <tr>
+            <th class="px-2 sm:px-4 py-2 text-left">Name</th>
+            <th class="px-2 sm:px-4 py-2 text-left hidden sm:table-cell">Size</th>
+            <th class="px-2 sm:px-4 py-2 text-left hidden md:table-cell">Last Modified</th>
+            <th class="px-2 sm:px-4 py-2 text-left">Permission</th>
+            <th class="px-2 sm:px-4 py-2 text-left">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr @click="navigateTo(previousPath)" class="hover:bg-gray-100 cursor-pointer border-b border-gray-200">
+            <td class="px-2 sm:px-4 py-2 text-blue-600 font-medium">
+              <div class="flex items-center">
+                <span class="mr-1 sm:mr-2">📁</span>
+                <span>...</span>
+              </div>
+            </td>
+            <td class="hidden sm:table-cell"></td>
+            <td class="hidden md:table-cell"></td>
+            <td></td>
+            <td></td>
+          </tr>
+          <template v-if="files && files.length">
+            <tr v-for="file in files" :key="file.path" class="hover:bg-gray-100 border-b border-gray-200">
+              <td @click="handleRowClick(file)" class="px-2 sm:px-4 py-2 text-blue-600 font-medium cursor-pointer">
+                <div class="flex items-center">
+                  <span v-if="file.is_dir" class="mr-1 sm:mr-2">📁</span>
+                  <span v-else-if="isArchiveFile(file.name)" class="mr-1 sm:mr-2">📦</span>
+                  <span v-else class="mr-1 sm:mr-2">📄</span>
+                  <span class="truncate">{{ file.name }}</span>
+                </div>
+              </td>
+              <td class="px-2 sm:px-4 py-2 whitespace-nowrap hidden sm:table-cell">{{ file.file_size }}</td>
+              <td class="px-2 sm:px-4 py-2 whitespace-nowrap hidden md:table-cell">{{ file.last_modified }}</td>
+              <td class="px-2 sm:px-4 py-2">
+                <button
+                  class="w-full px-1 sm:px-2 py-1 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded transition duration-300 text-xs sm:text-sm"
+                  @click="openPermissionModal(file)"
+                >
+                  {{ file.permissions }}
+                </button>
+              </td>
+              <td class="px-2 sm:px-4 py-2">
+                <div class="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-1">
+                  <button
+                    v-if="file.is_editable"
+                    class="px-1 sm:px-2 py-1 rounded transition duration-300 text-xs sm:text-sm text-white bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 active:from-blue-700 active:to-blue-800 hover:shadow-lg active:shadow-md"
+                    @click="goToEditPage(file)"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    v-if="isArchiveFile(file.name)"
+                    class="px-1 sm:px-2 py-1 rounded transition duration-300 text-xs sm:text-sm text-white bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 active:from-cyan-700 active:to-cyan-800 hover:shadow-lg active:shadow-md"
+                    @click="openArchiveModal(file.path)"
+                  >
+                    View
+                  </button>
+                  <button
+                    class="px-1 sm:px-2 py-1 rounded transition duration-300 text-xs sm:text-sm text-white bg-gradient-to-br from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 active:from-indigo-700 active:to-indigo-800 hover:shadow-lg active:shadow-md"
+                    @click="openRenameModal(file)"
+                  >
+                    Rename
+                  </button>
+                  <button
+                    class="px-1 sm:px-2 py-1 rounded transition duration-300 text-xs sm:text-sm text-white bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 active:from-red-700 active:to-red-800 hover:shadow-lg active:shadow-md"
+                    @click="deleteFile(file)"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </template>
+          <template v-else>
+            <tr>
+              <td colspan="5" class="px-2 sm:px-4 py-2 text-center text-gray-500">Directory is empty</td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
     </div>
-    <table v-if="files.length" class="file-table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Size</th>
-          <th>Last Modified</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td @click="navigateTo(previousPath)">📁 .../</td>
-          <td></td>
-          <td></td>
-          <td></td>
-        </tr>
-        <tr v-for="file in files" :key="file.path">
-          <td @click="file.is_dir ? navigateTo(file.path) : null">
-            <span v-if="file.is_dir">📁 {{ file.name }}</span>
-            <span v-else>📄 {{ file.name }}</span>
-          </td>
-          <td>{{ file.formatted_size }}</td>
-          <td>{{ file.last_modified }}</td>
-          <td>
-            <button class="btn" @click.prevent="editFile(file)">Edit</button>
-            <button class="btn" @click.prevent="renameFile(file)">
-              Rename
-            </button>
-            <button class="btn" @click.prevent="deleteFile(file)">
-              Delete
-            </button>
-            <button
-              v-if="isArchiveFile(file.name)"
-              class="btn"
-              @click.prevent="openArchiveModal(file.path)"
-            >
-              View Archive
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-    <p v-else>No files found.</p>
 
-    <!-- Modal for Upload Form -->
-    <div v-if="showUploadModal" class="modal">
-      <div class="modal-content">
-        <span class="close" @click="closeUploadModal">&times;</span>
-        <h2>Upload File</h2>
-        <form @submit.prevent="uploadFile">
-          <input type="file" @change="handleFileUpload" required />
-          <button type="submit" class="btn">Upload</button>
-        </form>
-      </div>
-    </div>
+    <ArchiveModal
+      v-if="showArchiveModal"
+      :archiveFiles="archiveFiles"
+      @closeArchiveModal="closeArchiveModal"
+      @fetchFiles="this.$emit('fetchFiles', this.currentPath)"
+      @getToastOptions="this.$emit('getToastOptions')"
+    />
+
+    <PermissionModal
+      v-if="showPermissionModal"
+      :show="showPermissionModal"
+      :currentPath="currentPath"
+      :permissionsData="permissionsData"
+      @close="showPermissionModal = false"
+      @fetchFiles="this.$emit('fetchFiles', this.currentPath)"
+      @getToastOptions="this.$emit('getToastOptions')"
+    />
+
+    <RenameModal
+      v-if="showRenameModal"
+      :showModal="showRenameModal"
+      :renameData="renameData"
+      :currentPath="currentPath"
+      @close="showRenameModal = false"
+      @fetchFiles="this.$emit('fetchFiles', this.currentPath)"
+      @getToastOptions="this.$emit('getToastOptions')"
+    />
   </div>
 </template>
 
 <script>
-import axios from "axios";
+import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+import { useToast } from 'vue-toastification';
+import axios from 'axios';
+import ArchiveModal from '../components/ArchiveModal.vue';
+import PermissionModal from '@/components/PermissionModal.vue';
+import RenameModal from './RenameModal.vue';
 
 export default {
-  name: "FileManager",
-  data() {
-    return {
-      files: [],
-      currentPath: "",
-      previousPath: "",
-      showUploadModal: false,
-      selectedFile: null,
+  name: 'FileTable',
+  components: {
+    ArchiveModal,
+    PermissionModal,
+    RenameModal,
+  },
+  props: {
+    files: Array,
+    previousPath: String,
+  },
+  setup(props, { emit }) {
+    const router = useRouter();
+    const toast = useToast();
+
+    const archiveFiles = ref([]);
+    const currentPath = ref('');
+    const showArchiveModal = ref(false);
+    const showPermissionModal = ref(false);
+    const showRenameModal = ref(false);
+    const permissionsData = ref({ filepath: '', permissions: '' });
+    const renameData = ref({ oldPath: '', name: '' });
+
+    onMounted(() => {
+      currentPath.value = localStorage.getItem('currentPath') || '';
+    });
+
+    const isArchiveFile = (filename) => {
+      return ['.zip', '.tar.gz', '.tar', '.gz'].some((ext) => filename.endsWith(ext));
     };
-  },
-  mounted() {
-    this.fetchFiles(".");
-  },
-  methods: {
-    async fetchFiles(path) {
-      try {
-        const response = await axios.get(
-          "http://157.230.247.64:4567/api/files",
-          {
-            params: { path },
-          }
-        );
-        const data = response.data;
-        this.files = data.files;
-        this.currentPath = data.current_path;
-        this.previousPath = data.previous_path;
-      } catch (error) {
-        console.error("Error fetching files:", error);
-      }
-    },
-    navigateTo(path) {
-      this.fetchFiles(path);
-    },
-    async renameFile(file) {
-      const newName = prompt("Enter new name:", file.name);
-      if (newName) {
+
+    const navigateTo = (path) => {
+      emit('navigateTo', path);
+    };
+
+    const deleteFile = async (file) => {
+      if (confirm(`Are you sure you want to delete ${file.name}?`)) {
         try {
-          await axios.post("http://157.230.247.64:4567/api/files/rename", {
-            oldPath: file.path,
-            newName,
-          });
-          this.fetchFiles(this.currentPath);
+          const response = await axios.delete('/api/files/delete', { data: { path: file.path } });
+          toast.success(response.data.message, emit('getToastOptions'));
+          emit('fetchFiles', currentPath.value);
         } catch (error) {
-          console.error("Error renaming file:", error);
+          handleError('Failed to delete file.', error);
         }
       }
-    },
-    async deleteFile(file) {
-      const confirmDelete = confirm(
-        `Are you sure you want to delete ${file.name}?`
-      );
-      if (confirmDelete) {
+    };
+
+    const viewArchive = async (path) => {
+      try {
+        const response = await axios.get('/api/files/view_archive', { params: { path } });
+        archiveFiles.value = response.data;
+      } catch (error) {
+        handleError('Failed to fetch archive contents.', error);
+      }
+    };
+
+    const downloadFile = async (file) => {
+      if (confirm(`Are you sure you want to download ${file.name}?`)) {
         try {
-          await axios.delete("http://157.230.247.64:4567/api/files/delete", {
-            data: { path: file.path },
-          });
-          this.fetchFiles(this.currentPath);
+          const url = `/api/files/download?file=${encodeURIComponent(file.path)}`;
+          const response = await axios.get(url, { responseType: 'blob' });
+          const contentDisposition = response.headers['content-disposition'];
+          const fileNameMatch = contentDisposition ? contentDisposition.match(/filename="(.+)"/) : null;
+          const actualFileName = fileNameMatch ? fileNameMatch[1] : file.name;
+          const blob = new Blob([response.data], { type: response.headers['content-type'] || 'application/octet-stream' });
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = actualFileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(link.href);
         } catch (error) {
-          console.error("Error deleting file:", error);
+          handleError('Error downloading file.', error);
         }
       }
-    },
-    openUploadModal() {
-      this.showUploadModal = true;
-    },
-    closeUploadModal() {
-      this.showUploadModal = false;
-      this.selectedFile = null;
-    },
-    handleFileUpload(event) {
-      this.selectedFile = event.target.files[0];
-    },
-    async uploadFile() {
-      if (!this.selectedFile) {
-        alert("Please select a file to upload.");
-        return;
-      }
+    };
 
-      const formData = new FormData();
-      formData.append("file", this.selectedFile);
-      formData.append("path", this.currentPath);
+    const openPermissionModal = (file) => {
+      permissionsData.value = { filepath: file.path, permissions: file.permissions };
+      showPermissionModal.value = true;
+    };
 
-      try {
-        await axios.post(
-          "http://157.230.247.64:4567/api/files/upload",
-          formData,
-          {
-            headers: {
-              "Content-Type": "multipart/form-data",
-            },
-          }
-        );
-        this.fetchFiles(this.currentPath);
-        this.closeUploadModal();
-      } catch (error) {
-        console.error("Error uploading file:", error);
+    const openRenameModal = (file) => {
+      renameData.value = { oldPath: file.path, name: file.name };
+      showRenameModal.value = true;
+    };
+
+    const closeRenameModal = () => {
+      renameData.value = { oldPath: '', name: '' };
+      showRenameModal.value = false;
+    };
+
+    const openArchiveModal = (path) => {
+      viewArchive(path);
+      showArchiveModal.value = true;
+    };
+
+    const closeArchiveModal = () => {
+      showArchiveModal.value = false;
+      archiveFiles.value = [];
+    };
+
+    const goToEditPage = (file) => {
+      router.push({
+        name: 'EditItem',
+        params: { filepath: encodeURIComponent(file.path) },
+      });
+    };
+
+    const handleRowClick = (file) => {
+      if (file.is_dir) {
+        navigateTo(file.path);
+      } else if (isArchiveFile(file.name)) {
+        openArchiveModal(file.path);
+      } else if (file.is_editable) {
+        goToEditPage(file);
+      } else if (!file.is_editable && !file.is_dir) {
+        downloadFile(file);
       }
-    },
-    async viewArchive(path) {
-      try {
-        const response = await axios.get(
-          "http://157.230.247.64:4567/api/files/view_archive",
-          {
-            params: { path },
-          }
-        );
-        this.archiveFiles = response.data.files;
-      } catch (error) {
-        console.error("Error fetching archive contents:", error);
-      }
-    },
-    isArchiveFile(filename) {
-      const archiveExtensions = [".zip", ".tar.gz", ".tar", ".gz"];
-      return archiveExtensions.some((ext) => filename.endsWith(ext));
-    },
-    editFile(file) {
-      this.$router.push({ name: "editFile", params: { filePath: file.path } });
-    },
+    };
+
+    const handleError = (message, error) => {
+      console.error(message, error);
+      toast.error(message, emit('getToastOptions'));
+    };
+
+    const formatDate = (dateString) => {
+      const date = new Date(dateString);
+      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+    };
+    
+    return {
+      archiveFiles,
+      currentPath,
+      showArchiveModal,
+      showPermissionModal,
+      showRenameModal,
+      permissionsData,
+      renameData,
+      isArchiveFile,
+      navigateTo,
+      deleteFile,
+      openPermissionModal,
+      openRenameModal,
+      closeRenameModal,
+      openArchiveModal,
+      closeArchiveModal,
+      goToEditPage,
+      handleRowClick,
+      formatDate,
+    };
   },
 };
 </script>
 
 <style scoped>
+@import 'https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css';
+
+</style>
+
+<!-- <style scoped>
+.table-container {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Table styling */
 .file-table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 20px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  background: #ffffff;
 }
 
-th,
-td {
-  border: 1px solid #ddd;
-  padding: 12px;
+.file-table th,
+.file-table td {
+  padding: 10px;
+  border: 1px solid #e0e0e0;
   text-align: left;
+  color: #333;
+  font-size: 0.875em;
 }
 
-th {
-  background-color: #f2f2f2;
+.file-table thead {
+  background-color: #f0f9ff; /* Light blue background */
+  color: #007bff; /* Primary blue color for text */
+  font-weight: 600;
 }
 
-tr:hover {
-  background-color: #f1f1f1;
+.file-table tbody tr:nth-child(even) {
+  background-color: #f8f9fa; /* Light gray for alternating rows */
 }
-</style>
+
+.file-table tbody tr:hover {
+  background-color: #e9ecef; /* Slightly darker gray on hover */
+}
+
+.file-table .directory {
+  cursor: pointer;
+  color: #007bff; /* Primary blue color */
+  font-weight: 500;
+}
+
+/* Button styles */
+.file-table .btn {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+  color: #ffffff;
+  font-size: 0.875em;
+  margin: 2px; /* Space between buttons */
+}
+
+/* Permission button */
+.file-table .btn-permission {
+  background-color: #f8f9fa; /* Light background for better visibility */
+  color: #007bff; /* Primary blue text color */
+  border: 1px solid #e0e0e0; /* Light gray border */
+  min-width: 95%;
+}
+
+.file-table .btn-permission:hover {
+  background-color: #e2e6ea; /* Slightly darker gray on hover */
+  color: #0056b3; /* Darker blue text color on hover */
+}
+
+.file-table .btn-permission:active {
+  background-color: #d6d9db; /* Even darker gray on active */
+  color: #004085; /* Even darker blue text color on active */
+}
+
+/* Action buttons */
+.file-table .btn-edit {
+  background: linear-gradient(135deg, #1e90ff, #4682b4);
+}
+
+.file-table .btn-edit:hover {
+  background: linear-gradient(135deg, #4682b4, #4169e1);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+.file-table .btn-edit:active {
+  background: linear-gradient(135deg, #4169e1, #3152a1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.file-table .btn-rename {
+  background: linear-gradient(135deg, #007bff, #0056b3);
+}
+
+.file-table .btn-rename:hover {
+  background: linear-gradient(135deg, #0056b3, #003d79);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+.file-table .btn-rename:active {
+  background: linear-gradient(135deg, #003d79, #002b54);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.file-table .btn-delete {
+  background: linear-gradient(135deg, #dc3545, #c82333);
+}
+
+.file-table .btn-delete:hover {
+  background: linear-gradient(135deg, #c82333, #a71d2a);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+.file-table .btn-delete:active {
+  background: linear-gradient(135deg, #a71d2a, #721c24);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.file-table .btn-view {
+  background: linear-gradient(135deg, #17a2b8, #138496);
+}
+
+.file-table .btn-view:hover {
+  background: linear-gradient(135deg, #138496, #117a8b);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+.file-table .btn-view:active {
+  background: linear-gradient(135deg, #117a8b, #0c6e76);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+  .file-table {
+    font-size: 1em;
+  }
+}
+
+@media (max-width: 768px) {
+  .file-table {
+    font-size: 0.9em;
+  }
+  .file-table th {
+    line-height: 2;
+  }
+  .file-table th,
+  .file-table td {
+    padding: 8px;
+  }
+  .file-table .btn {
+    padding: 6px 10px;
+    font-size: 0.85em;
+  }
+  .file-table .directory {
+    line-height: 2;
+  }
+}
+
+@media (max-width: 480px) {
+  .file-table {
+    font-size: 0.8em;
+  }
+  .file-table th {
+    font-size: 1em;
+    line-height: 2;
+  }
+  .file-table td {
+    padding: 6px;
+    font-size: 0.8em;
+  }
+  .file-table .btn {
+    padding: 5px 8px;
+    font-size: 0.8em;
+    min-width: 90%;
+  }
+  .file-table .directory {
+    line-height: 3;
+  }
+}
+</style> -->
