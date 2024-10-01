@@ -141,7 +141,7 @@ func (a *application) startServer() {
 	if port == "" {
 		port = defaultPort
 	}
-	logger.GetLogger().Info().Str("port", port).Msg("Server is listening on port")
+	logger.GetLogger().Info().Str("port", port).Msg("Server is listening on")
 	if err := a.app.Listen(port); err != nil {
 		logger.GetLogger().Fatal().Str("port", port).Err(err).Msg("Error starting server")
 	}

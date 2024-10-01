@@ -1,6 +1,8 @@
 package inbound
 
-import "singconfig/internal/utils"
+import (
+	"singconfig/internal/utils"
+)
 
 type InboundConfig struct {
 	Type                    string              `json:"type"`
@@ -57,8 +59,9 @@ func BuildInbounds() []InboundConfig {
 	}
 
 	var inbounds []InboundConfig
+	uuid := utils.GenerateUUID()
 	for _, entry := range inboundTypes {
-		inbounds = append(inbounds, buildInboundConfig(entry))
+		inbounds = append(inbounds, buildInboundConfig(entry, uuid))
 	}
 	return inbounds
 }
@@ -70,8 +73,8 @@ func buildInboundConfig(entry struct {
 	tcpFastOpen bool
 	transport   string
 	path        string
-}) InboundConfig {
-	users := buildUsers(entry.protocol)
+}, uuid string) InboundConfig {
+	users := buildUsers(entry.protocol, uuid)
 	inbound := InboundConfig{
 		Type:                     entry.protocol,
 		Tag:                      entry.tag,
@@ -93,14 +96,14 @@ func buildInboundConfig(entry struct {
 	return inbound
 }
 
-func buildUsers(protocol string) []UserConfig {
+func buildUsers(protocol string, uuid string) []UserConfig {
 	switch protocol {
 	case "trojan":
-		return []UserConfig{{Name: "default", Password: utils.GenerateUUID()}}
+		return []UserConfig{{Name: "default", Password: uuid}}
 	case "socks":
-		return []UserConfig{{Username: "default", Password: utils.GenerateUUID()}}
+		return []UserConfig{{Username: "default", Password: uuid}}
 	default:
-		return []UserConfig{{Name: "default", UUID: utils.GenerateUUID()}}
+		return []UserConfig{{Name: "default", UUID: uuid}}
 	}
 }
 

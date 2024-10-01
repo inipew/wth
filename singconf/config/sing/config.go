@@ -5,23 +5,26 @@ import (
 	"os"
 )
 
+// Config adalah struktur utama untuk konfigurasi
 type Config struct {
-    Log         *LogConfig				`json:"log,omitempty"`
-    DNS         *DNSConfig		`json:"dns,omitempty"`
-    NTP         *NTPConfig            `json:"ntp,omitempty"`
-    Inbounds    []InboundConfig		`json:"inbounds,omitempty"`
-    Outbounds   []OutboundConfig		`json:"outbounds,omitempty"`
-    Route       *RouteConfig          `json:"route,omitempty"`
-    Experimental *ExperimentalConfig	`json:"experimental,omitempty"`
+	Log          *LogConfig         `json:"log,omitempty"`
+	DNS          *DNSConfig         `json:"dns,omitempty"`
+	NTP          *NTPConfig         `json:"ntp,omitempty"`
+	Inbounds     []InboundConfig    `json:"inbounds,omitempty"`
+	Outbounds    []OutboundConfig   `json:"outbounds,omitempty"`
+	Route        *RouteConfig       `json:"route,omitempty"`
+	Experimental *ExperimentalConfig `json:"experimental,omitempty"`
 }
 
+// LogConfig menangani konfigurasi logging
 type LogConfig struct {
-	Disabled  bool	`json:"disabled"`
+	Disabled  bool   `json:"disabled"`
 	Level     string `json:"level"`
 	Output    string `json:"output"`
 	Timestamp bool   `json:"timestamp"`
 }
 
+// DNSConfig menangani konfigurasi DNS
 type DNSConfig struct {
 	Servers          []DNSServerConfig `json:"servers"`
 	Rules            []DNSRuleConfig   `json:"rules"`
@@ -29,6 +32,7 @@ type DNSConfig struct {
 	IndependentCache bool              `json:"independent_cache"`
 }
 
+// DNSServerConfig adalah konfigurasi untuk server DNS
 type DNSServerConfig struct {
 	Tag              string `json:"tag"`
 	Address          string `json:"address"`
@@ -37,6 +41,7 @@ type DNSServerConfig struct {
 	Detour           string `json:"detour,omitempty"`
 }
 
+// DNSRuleConfig adalah konfigurasi untuk aturan DNS
 type DNSRuleConfig struct {
 	RuleSet        []string          `json:"rule_set,omitempty"`
 	Server         string            `json:"server,omitempty"`
@@ -50,6 +55,7 @@ type DNSRuleConfig struct {
 	ClientSubnet   string            `json:"client_subnet,omitempty"`
 }
 
+// NTPConfig menangani konfigurasi NTP
 type NTPConfig struct {
 	Interval    string `json:"interval"`
 	Server      string `json:"server"`
@@ -57,32 +63,36 @@ type NTPConfig struct {
 	Detour      string `json:"detour"`
 }
 
+// InboundConfig menangani konfigurasi inbound
 type InboundConfig struct {
-	Type                    string              `json:"type"`
-	Tag                     string              `json:"tag"`
-	Listen                  string              `json:"listen"`
-	ListenPort              int                 `json:"listen_port"`
-	TCPFastOpen             bool                `json:"tcp_fast_open,omitempty"`
-	Sniff                   bool                `json:"sniff,omitempty"`
-	SniffTimeout            string              `json:"sniff_timeout,omitempty"`
-	SniffOverrideDestination bool                `json:"sniff_override_destination,omitempty"`
-	DomainStrategy          string              `json:"domain_strategy,omitempty"`
-	Users                   []UserConfig        `json:"users,omitempty"`
-	Multiplex               *MultiplexConfig     `json:"multiplex,omitempty"`
-	Transport               *TransportConfig     `json:"transport,omitempty"`
+	Type                     string           `json:"type"`
+	Tag                      string           `json:"tag"`
+	Listen                   string           `json:"listen"`
+	ListenPort               int              `json:"listen_port"`
+	TCPFastOpen              bool             `json:"tcp_fast_open,omitempty"`
+	Sniff                    bool             `json:"sniff,omitempty"`
+	SniffTimeout             string           `json:"sniff_timeout,omitempty"`
+	SniffOverrideDestination bool             `json:"sniff_override_destination,omitempty"`
+	DomainStrategy           string           `json:"domain_strategy,omitempty"`
+	Users                    []UserConfig     `json:"users,omitempty"`
+	Multiplex                *MultiplexConfig `json:"multiplex,omitempty"`
+	Transport                *TransportConfig `json:"transport,omitempty"`
 }
 
+// UserConfig adalah konfigurasi untuk pengguna
 type UserConfig struct {
 	Name     string `json:"name,omitempty"`
 	UUID     string `json:"uuid,omitempty"`
-	Password string `json:"password,omitempty"`
+	Password string ` json:"password,omitempty"`
 	Username string `json:"Username,omitempty"`
 }
 
+// MultiplexConfig adalah konfigurasi untuk multiplex
 type MultiplexConfig struct {
 	Enabled bool `json:"enabled"`
 }
 
+// TransportConfig adalah konfigurasi untuk transport
 type TransportConfig struct {
 	Type                 string `json:"type"`
 	Path                 string `json:"path,omitempty"`
@@ -90,6 +100,7 @@ type TransportConfig struct {
 	ServiceName          string `json:"service_name,omitempty"`
 }
 
+// OutboundConfig menangani konfigurasi outbound
 type OutboundConfig struct {
 	Type                      string     `json:"type"`
 	Tag                       string     `json:"tag"`
@@ -102,6 +113,7 @@ type OutboundConfig struct {
 	IdleTimeout               string     `json:"idle_timeout,omitempty"`
 }
 
+// RouteConfig menangani konfigurasi routing
 type RouteConfig struct {
 	Rules    []RouteRuleConfig `json:"rules,omitempty"`
 	RuleSet  []RuleSetConfig   `json:"rule_set,omitempty"`
@@ -109,6 +121,7 @@ type RouteConfig struct {
 	AutoDetectInterface bool   `json:"auto_detect_interface,omitempty"`
 }
 
+// RouteRuleConfig adalah konfigurasi untuk aturan routing
 type RouteRuleConfig struct {
 	Type           string            `json:"type,omitempty"`
 	Mode           string            `json:"mode,omitempty"`
@@ -120,6 +133,7 @@ type RouteRuleConfig struct {
 	DomainSuffix   []string          `json:"domain_suffix,omitempty"`
 }
 
+// RuleSetConfig adalah konfigurasi untuk set aturan
 type RuleSetConfig struct {
 	Type            string        `json:"type"`
 	Tag             string        `json:"tag"`
@@ -129,11 +143,13 @@ type RuleSetConfig struct {
 	UpdateInterval  string        `json:"update_interval"`
 }
 
+// ExperimentalConfig menangani konfigurasi experimental
 type ExperimentalConfig struct {
 	CacheFile CacheFileConfig `json:"cache_file"`
 	ClashAPI  ClashAPIConfig  `json:"clash_api"`
 }
 
+// CacheFileConfig adalah konfigurasi untuk cache file
 type CacheFileConfig struct {
 	Enabled   bool   `json:"enabled"`
 	Path      string `json:"path"`
@@ -141,6 +157,7 @@ type CacheFileConfig struct {
 	StoreRDRC bool   `json:"store_rdrc"`
 }
 
+// ClashAPIConfig adalah konfigurasi untuk Clash API
 type ClashAPIConfig struct {
 	ExternalController     string `json:"external_controller"`
 	ExternalUI             string `json:"external_ui"`
@@ -149,7 +166,8 @@ type ClashAPIConfig struct {
 	Secret                 string `json:"secret"`
 }
 
-type WireGuardOutbound struct{
+// WireGuardOutbound adalah konfigurasi untuk WireGuard outbound
+type WireGuardOutbound struct {
 	Type            string   `json:"type,omitempty"`
 	Tag             string   `json:"tag,omitempty"`
 	DomainStrategy            string     `json:"domain_strategy,omitempty"`
@@ -162,14 +180,15 @@ type WireGuardOutbound struct{
 	URL                       string     `json:"url,omitempty"`
 }
 
+// SaveToFile menyimpan konfigurasi ke file
 func (c *Config) SaveToFile(filename string) error {
-    file, err := os.Create(filename)
-    if err != nil {
-        return err
-    }
-    defer file.Close()
+	file, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
 
-    encoder := json.NewEncoder(file)
-    encoder.SetIndent("", "  ")
-    return encoder.Encode(c)
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(c)
 }

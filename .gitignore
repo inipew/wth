@@ -3,6 +3,7 @@
 *.zip
 *.tar.gz
 config*.json
+0*_config*.json
 *pew*.json
 tests
 test

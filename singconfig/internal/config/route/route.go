@@ -106,7 +106,6 @@ func createRuleSets() []RuleSetConfig {
 		{"direct_some_web", "inipew/any@main/direct-some-web.srs", "24h0m0s"},
 		{"needwarp", "inipew/any@main/warped.srs", "24h0m0s"},
 		{"adguard", "inipew/any@main/adguard.srs", "24h0m0s"},
-		{"geosite-google_ads", "malikshi/sing-box-geo@rule-set-geosite/geosite-google-ads.srs", defaultUpdateInterval},
 		{"geoip-malicious", "malikshi/sing-box-geo@rule-set-geoip/geoip-malicious.srs", defaultUpdateInterval},
 		{"oisd-full", "malikshi/sing-box-geo@rule-set-geosite/geosite-oisd-full.srs", defaultUpdateInterval},
 		{"oisd-nsfw", "malikshi/sing-box-geo@rule-set-geosite/geosite-oisd-nsfw.srs", defaultUpdateInterval},
@@ -121,8 +120,9 @@ func createRuleSets() []RuleSetConfig {
 		{"rule_youtube", "malikshi/sing-box-geo@rule-set-geosite/geosite-youtube.srs", defaultUpdateInterval},
 		{"google", "malikshi/sing-box-geo@rule-set-geosite/geosite-google.srs", defaultUpdateInterval},
 		{"googlefcm", "malikshi/sing-box-geo@rule-set-geosite/geosite-googlefcm.srs", defaultUpdateInterval},
-		{"reddit", "malikshi/sing-box-geo@rule-set-geosite/geosite-reddit.srs", defaultUpdateInterval},
 		{"geoip_google", "malikshi/sing-box-geo@rule-set-geoip/geoip-google.srs", defaultUpdateInterval},
+		{"geosite-google_ads", "malikshi/sing-box-geo@rule-set-geosite/geosite-google-ads.srs", defaultUpdateInterval},
+		{"reddit", "malikshi/sing-box-geo@rule-set-geosite/geosite-reddit.srs", defaultUpdateInterval},
 		{"geoip_cloudflare", "malikshi/sing-box-geo@rule-set-geoip/geoip-cloudflare.srs", defaultUpdateInterval},
 		{"commonports", "inipew/any@main/commonports.srs", "720h0m0s"},
 	}
