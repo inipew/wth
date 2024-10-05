@@ -6,6 +6,7 @@ import (
 	"sbx/internal/commands"
 	"sbx/internal/config"
 	"sbx/internal/logger"
+	"sbx/internal/utils"
 
 	"github.com/rs/zerolog"
 )
@@ -20,8 +21,12 @@ func main() {
     if err != nil {
         panic(err)
     }
+    log := logger.GetLogger()
 
-    // log := logger.GetLogger()
+	if !utils.CheckRoot() {
+        log.Fatal().Msg("This program must be run as root")
+    }
+
 
 	config.CreateAllDirs()
 
