@@ -1,6 +1,7 @@
 package file
 
 import (
+	"errors"
 	"files/internal/config"
 	"files/internal/models"
 	"files/internal/utils/helper"
@@ -20,7 +21,7 @@ const (
 	timeFormat             = "2006-01-02 15:04:05"
 )
 
-// FileManager handles file operations and uses the application config
+// FileManager handles file operations using the application config
 type FileManager struct {
 	Config *config.Config
 }
@@ -48,7 +49,7 @@ func (fm *FileManager) GetDirectoryPath(c *fiber.Ctx) (string, error) {
 	}
 
 	if !strings.HasPrefix(absPath, fm.Config.Files.StorageDir) {
-		return "", fmt.Errorf("access to directory outside of storage area is forbidden")
+		return "", errors.New("access to directory outside of storage area is forbidden")
 	}
 
 	return absPath, nil
@@ -56,7 +57,7 @@ func (fm *FileManager) GetDirectoryPath(c *fiber.Ctx) (string, error) {
 
 // PrepareFileInfo prepares FileInfo slice from directory entries
 func (fm *FileManager) PrepareFileInfo(files []os.DirEntry, dirPath string) ([]models.FileInfo, error) {
-	fileInfos := make([]models.FileInfo, 0, len(files))
+	var fileInfos []models.FileInfo
 
 	for _, file := range files {
 		if !fm.Config.Files.ShowHiddenFiles && strings.HasPrefix(file.Name(), ".") {
@@ -76,7 +77,12 @@ func (fm *FileManager) PrepareFileInfo(files []os.DirEntry, dirPath string) ([]m
 			continue
 		}
 
-		owner, group, _ := fm.getFileOwnerGroup(filePath)
+		owner, group, err := fm.getFileOwnerGroup(filePath)
+		if err != nil {
+			log.Error().Err(err).Str("file", file.Name()).Msg("Error getting file owner and group")
+			continue
+		}
+
 		fileInfos = append(fileInfos, models.FileInfo{
 			Name:          file.Name(),
 			Path:          filepath.ToSlash(filePath),
@@ -92,6 +98,7 @@ func (fm *FileManager) PrepareFileInfo(files []os.DirEntry, dirPath string) ([]m
 			CreationDate:  fm.getCreationDate(info),
 		})
 	}
+
 	helper.SortFileInfos(fileInfos)
 	return fileInfos, nil
 }

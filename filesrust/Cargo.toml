@@ -1,0 +1,12 @@
+[package]
+name = "filesrust"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+chrono = "0.4.38"
+serde = { version = "1.0.210", features = ["derive"] }
+serde_json = "1.0.128"
+users = "0.11.0"
+rayon = "1.10.0"
+thiserror = "1.0.64"
